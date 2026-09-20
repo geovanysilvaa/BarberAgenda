@@ -5,6 +5,7 @@ export interface Barbearia {
   address: string
   phone: string
   ownerId: string
+  avatarUrl?: string | null
   createdAt: string
   updatedAt: string
 }

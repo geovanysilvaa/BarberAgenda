@@ -15,7 +15,7 @@ export class BarbeariaController {
 
   async criar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, address, phone } = req.body
+      const { name, address, phone, avatarUrl } = req.body
 
       if (!req.usuario) {
         throw new AppError('Usuário não autenticado.', 401, 'UNAUTHORIZED')
@@ -28,6 +28,7 @@ export class BarbeariaController {
         address,
         phone,
         ownerId,
+        avatarUrl,
       })
 
       res.status(201).json(barbearia)

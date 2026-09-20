@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { Filter, RotateCcw, Scissors, Calendar, ListFilter } from 'lucide-react'
 import { Select } from '../../../shared/ui/Select'
 import { Input } from '../../../shared/ui/Input'
 import { Button } from '../../../shared/ui/Button'
@@ -39,8 +40,6 @@ interface FiltroAgendamentosProps {
 }
 
 export function FiltroAgendamentos({ profissionais, onChange }: FiltroAgendamentosProps) {
-  // Guarda a versão mais recente do callback sem precisar recriar a
-  // subscription do watch() a cada render do componente pai.
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
 
@@ -54,6 +53,13 @@ export function FiltroAgendamentos({ profissionais, onChange }: FiltroAgendament
     defaultValues: filtrosPadrao,
   })
 
+  const valoresAtuais = watch()
+  const temFiltroAtivo =
+    valoresAtuais.status !== 'todos' ||
+    valoresAtuais.professionalId !== 'todos' ||
+    !!valoresAtuais.dateFrom ||
+    !!valoresAtuais.dateTo
+
   useEffect(() => {
     const subscription = watch((valores) => {
       const resultado = filtroAgendamentosSchema.safeParse(valores)
@@ -65,17 +71,45 @@ export function FiltroAgendamentos({ profissionais, onChange }: FiltroAgendament
   }, [watch])
 
   return (
-    <div className="bg-secondary border border-border rounded-xl p-4 mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Select label="Status" error={errors.status?.message} {...register('status')}>
-          <option value="todos">Todos</option>
-          <option value="agendado">Agendado</option>
-          <option value="concluido">Concluído</option>
-          <option value="cancelado">Cancelado</option>
+    <div className="bg-secondary border border-border rounded-2xl p-5 mb-8 shadow-xs">
+      <div className="flex items-center justify-between gap-2 pb-4 mb-4 border-b border-border/80">
+        <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+          <Filter size={18} className="text-selected" />
+          <span>Filtrar agendamentos</span>
+          {temFiltroAtivo && (
+            <span className="w-2 h-2 rounded-full bg-selected animate-pulse" title="Filtros ativos" />
+          )}
+        </div>
+
+        {temFiltroAtivo && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => reset(filtrosPadrao)}
+            className="text-xs px-3 py-1.5"
+          >
+            <RotateCcw size={14} />
+            Limpar filtros
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Select label="Status" icon={ListFilter} error={errors.status?.message} {...register('status')}>
+          <option value="todos">Todos os status</option>
+          <option value="agendado">Agendados</option>
+          <option value="concluido">Concluídos</option>
+          <option value="cancelado">Cancelados</option>
         </Select>
 
-        <Select label="Profissional" error={errors.professionalId?.message} {...register('professionalId')}>
-          <option value="todos">Todos</option>
+        <Select
+          label="Profissional"
+          icon={Scissors}
+          error={errors.professionalId?.message}
+          {...register('professionalId')}
+        >
+          <option value="todos">Todos os profissionais</option>
           {profissionais.map((profissional) => (
             <option key={profissional.id} value={profissional.id}>
               {profissional.name}
@@ -83,14 +117,20 @@ export function FiltroAgendamentos({ profissionais, onChange }: FiltroAgendament
           ))}
         </Select>
 
-        <Input label="De" type="date" error={errors.dateFrom?.message} {...register('dateFrom')} />
-        <Input label="Até" type="date" error={errors.dateTo?.message} {...register('dateTo')} />
-      </div>
-
-      <div className="mt-4">
-        <Button type="button" variant="secondary" size="sm" onClick={() => reset(filtrosPadrao)}>
-          Limpar filtros
-        </Button>
+        <Input
+          label="Data inicial"
+          type="date"
+          icon={Calendar}
+          error={errors.dateFrom?.message}
+          {...register('dateFrom')}
+        />
+        <Input
+          label="Data final"
+          type="date"
+          icon={Calendar}
+          error={errors.dateTo?.message}
+          {...register('dateTo')}
+        />
       </div>
     </div>
   )

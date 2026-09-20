@@ -22,11 +22,12 @@ export class AtualizarBarbeariaUseCase implements IAtualizarBarbeariaUseCase {
       throw new AppError('Você não tem permissão para acessar este recurso.', 403, 'FORBIDDEN')
     }
 
-    const payload: Partial<Pick<Barbearia, 'name' | 'address' | 'phone'>> = {}
+    const payload: Partial<Pick<Barbearia, 'name' | 'address' | 'phone' | 'avatarUrl'>> = {}
 
     if (dados.name !== undefined) payload.name = dados.name
     if (dados.address !== undefined) payload.address = dados.address
     if (dados.phone !== undefined) payload.phone = dados.phone
+    if (dados.avatarUrl !== undefined) payload.avatarUrl = dados.avatarUrl
 
     if (Object.keys(payload).length === 0) {
       return barbearia

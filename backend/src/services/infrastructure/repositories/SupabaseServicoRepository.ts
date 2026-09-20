@@ -10,6 +10,8 @@ function mapRowParaServico(row: any): Servico {
     description: row.description,
     durationMinutes: row.duration_minutes,
     price: Number(row.price),
+    imageUrl: row.image_url ?? row.avatar_url ?? null,
+    avatarUrl: row.avatar_url ?? row.image_url ?? null,
     createdAt: row.created_at,
   }
 }
@@ -24,6 +26,7 @@ export class SupabaseServicoRepository implements IServicoRepository {
         description: dados.description,
         duration_minutes: dados.durationMinutes,
         price: dados.price,
+        avatar_url: dados.avatarUrl ?? dados.imageUrl ?? null,
       })
       .select('*')
       .single()
@@ -61,6 +64,9 @@ export class SupabaseServicoRepository implements IServicoRepository {
     if (dados.description !== undefined) updateData.description = dados.description
     if (dados.durationMinutes) updateData.duration_minutes = dados.durationMinutes
     if (dados.price) updateData.price = dados.price
+    if (dados.imageUrl !== undefined || dados.avatarUrl !== undefined) {
+      updateData.avatar_url = dados.avatarUrl ?? dados.imageUrl ?? null
+    }
 
     const { data, error } = await supabase
       .from('services')

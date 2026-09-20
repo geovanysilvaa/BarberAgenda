@@ -72,6 +72,7 @@ import { SupabaseIndisponibilidadeRecorrenteRepository } from './unavailabilitie
 import { RegistrarIndisponibilidadeRecorrenteUseCase } from './unavailabilities/use-cases/RegistrarIndisponibilidadeRecorrenteUseCase'
 import { RemoverIndisponibilidadeRecorrenteUseCase } from './unavailabilities/use-cases/RemoverIndisponibilidadeRecorrenteUseCase'
 import { ListarIndisponibilidadesRecorrentesUseCase } from './unavailabilities/use-cases/ListarIndisponibilidadesRecorrentesUseCase'
+import { routerStorage } from './shared/adapters/routes/storage.routes'
 
 dotenv.config()
 
@@ -191,7 +192,8 @@ const indisponibilidadeRepository = new SupabaseIndisponibilidadeRepository()
 const registrarIndisponibilidadeUseCase = new RegistrarIndisponibilidadeUseCase(
   indisponibilidadeRepository,
   profissionalRepository,
-  barbeariaRepository
+  barbeariaRepository,
+  businessHoursRepository
 )
 const removerIndisponibilidadeUseCase = new RemoverIndisponibilidadeUseCase(
   indisponibilidadeRepository,
@@ -209,7 +211,8 @@ const indisponibilidadeRecorrenteRepository = new SupabaseIndisponibilidadeRecor
 const registrarIndisponibilidadeRecorrenteUseCase = new RegistrarIndisponibilidadeRecorrenteUseCase(
   indisponibilidadeRecorrenteRepository,
   profissionalRepository,
-  barbeariaRepository
+  barbeariaRepository,
+  businessHoursRepository
 )
 const removerIndisponibilidadeRecorrenteUseCase = new RemoverIndisponibilidadeRecorrenteUseCase(
   indisponibilidadeRecorrenteRepository,
@@ -313,8 +316,17 @@ apiV1.use(
   '/barbershops/:barbershopId/professionals/:professionalId/available-slots',
   routerHorariosDisponiveis(horariosDisponiveisController)
 )
+apiV1.use('/storage', routerStorage())
 
 app.use('/api/v1', apiV1)
+
+// Fallback 404 em JSON (evita que o Express retorne HTML default)
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'NOT_FOUND',
+    message: `Rota ${req.method} ${req.originalUrl} não encontrada.`,
+  })
+})
 
 app.use(errorHandler)
 

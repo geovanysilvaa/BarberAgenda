@@ -7,6 +7,7 @@ export interface Usuario {
   phone: string
   role: Role
   roles: Role[]
+  avatarUrl?: string | null
   createdAt: string
   updatedAt: string
 }

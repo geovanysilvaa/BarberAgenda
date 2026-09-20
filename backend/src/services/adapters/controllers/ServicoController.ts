@@ -18,13 +18,15 @@ export class ServicoController {
         throw new AppError('Usuário não autenticado.', 401, 'UNAUTHORIZED')
       }
 
-      const { name, description, durationMinutes, price } = req.body
+      const { name, description, durationMinutes, price, imageUrl, avatarUrl } = req.body
 
       const servico = await this.cadastrarServicoUseCase.executar({
         name,
         description,
         durationMinutes,
         price,
+        imageUrl,
+        avatarUrl,
         barbershopId: req.params.barbershopId as string,
         ownerId: req.usuario.id,
       })
@@ -42,13 +44,15 @@ export class ServicoController {
         throw new AppError('Usuário não autenticado.', 401, 'UNAUTHORIZED')
       }
 
-      const { name, description, durationMinutes, price } = req.body
+      const { name, description, durationMinutes, price, imageUrl, avatarUrl } = req.body
 
       const servico = await this.atualizarServicoUseCase.executar({
         name,
         description,
         durationMinutes,
         price,
+        imageUrl,
+        avatarUrl,
         barbershopId: req.params.barbershopId as string,
         serviceId: req.params.id as string,
         ownerId: req.usuario.id,

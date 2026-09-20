@@ -21,6 +21,7 @@ export class CriarBarbeariaUseCase implements ICriarBarbeariaUseCase {
       address: dados.address,
       phone: dados.phone,
       ownerId: dados.ownerId,
+      avatarUrl: dados.avatarUrl ?? null,
     })
 
     // RF031: Promove usuário a owner

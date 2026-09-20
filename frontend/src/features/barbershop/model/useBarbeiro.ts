@@ -90,14 +90,22 @@ export function useBarbeiro() {
   )
 
   const criarBarbearia = useCallback(
-    async (dados: { name: string; address: string; phone: string }) => {
+    async (dados: {
+      name: string
+      address: string
+      phone: string
+      avatarUrl?: string | null
+    }) => {
       return api.post<Barbershop>('/barbershops', dados)
     },
     []
   )
 
   const atualizarBarbearia = useCallback(
-    async (barbershopId: string, dados: Partial<{ name: string; address: string; phone: string }>) => {
+    async (
+      barbershopId: string,
+      dados: Partial<{ name: string; address: string; phone: string; avatarUrl: string | null }>
+    ) => {
       const atualizada = await api.patch<Barbershop>(`/barbershops/${barbershopId}`, dados)
       setBarbearia(atualizada)
       return atualizada
@@ -133,7 +141,13 @@ export function useBarbeiro() {
   const criarServico = useCallback(
     async (
       barbershopId: string,
-      dados: { name: string; description?: string; durationMinutes: number; price: number }
+      dados: {
+        name: string
+        description?: string
+        durationMinutes: number
+        price: number
+        imageUrl?: string | null
+      }
     ) => {
       return api.post(`/barbershops/${barbershopId}/services`, dados)
     },
@@ -144,7 +158,13 @@ export function useBarbeiro() {
     async (
       barbershopId: string,
       serviceId: string,
-      dados: Partial<{ name: string; description?: string; durationMinutes: number; price: number }>
+      dados: Partial<{
+        name: string
+        description?: string
+        durationMinutes: number
+        price: number
+        imageUrl: string | null
+      }>
     ) => {
       return api.patch(`/barbershops/${barbershopId}/services/${serviceId}`, dados)
     },

@@ -8,6 +8,8 @@ export const cadastrarServicoSchema = z.object({
     .int('Duração deve ser um número inteiro de minutos')
     .positive('Duração deve ser maior que zero'),
   price: z.number().nonnegative('Preço não pode ser negativo'),
+  imageUrl: z.string().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
 })
 
 export const atualizarServicoSchema = z.object({
@@ -19,4 +21,6 @@ export const atualizarServicoSchema = z.object({
     .positive('Duração deve ser maior que zero')
     .optional(),
   price: z.number().nonnegative('Preço não pode ser negativo').optional(),
+  imageUrl: z.string().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
 })

@@ -31,6 +31,8 @@ export class CadastrarServicoUseCase implements ICadastrarServicoUseCase {
       description: dados.description ?? null,
       durationMinutes: dados.durationMinutes,
       price: dados.price,
+      imageUrl: dados.imageUrl ?? null,
+      avatarUrl: dados.avatarUrl ?? null,
     })
   }
 }

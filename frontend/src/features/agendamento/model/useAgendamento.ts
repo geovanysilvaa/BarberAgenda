@@ -60,6 +60,10 @@ export function useAgendamento() {
       setMeuProfissional(data)
       return data
     } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.code === 'PROFESSIONAL_NOT_FOUND')) {
+        setMeuProfissional(null)
+        return null
+      }
       setError(err instanceof ApiError ? err.message : 'Erro ao buscar dados do profissional.')
       return null
     } finally {

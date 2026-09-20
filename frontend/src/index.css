@@ -1,39 +1,591 @@
 @import 'tailwindcss';
 
+/* =========================================================
+   Barber Agenda — Design System Royal Navy & Copper
+   Paleta: Azul Marinho Profundo + Cobre Metálico + Bordô Rubi
+   Assinatura: Elegância Náutica com Acabamento Metálico
+   ========================================================= */
+
 @theme {
-  --font-sans: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* -------------------------------------------------------
+     Tipografia — Presença & Elegância
+     ------------------------------------------------------- */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Playfair Display', 'Sora', 'Inter', ui-sans-serif, system-ui, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  --color-primary: #ffffff;
-  --color-secondary: #f9fafb;
-  --color-accent: #dc2626;
-  --color-dark: #1a1a1a;
-  --color-text-primary: #1a1a2e;
-  --color-text-secondary: #6b7280;
-  --color-success: #4caf50;
-  --color-warning: #ff9800;
-  --color-error: #f44336;
-  --color-border: #e5e7eb;
+  --font-size-xs: 0.70rem;
+  --font-size-sm: 0.82rem;
+  --font-size-base: 0.94rem;
+  --font-size-lg: 1.08rem;
+  --font-size-xl: 1.28rem;
+  --font-size-2xl: 1.65rem;
+  --font-size-3xl: 2.1rem;
+  --font-size-4xl: 2.8rem;
+  --font-size-5xl: 3.7rem;
+  --font-size-6xl: 4.8rem;
 
-  /* Estado "selecionado/ativo" (cards de escolha, nav ativa, foco de
-     input) — separado do accent (vermelho) porque vermelho já significa
-     erro/perigo/CTA no resto do sistema; misturar os dois confundia
-     seleção com alerta. */
-  --color-selected: #4f46e5;
+  --leading-tighter: 1.05;
+  --leading-tight: 1.18;
+  --leading-snug: 1.38;
+  --leading-normal: 1.58;
+  --leading-relaxed: 1.78;
+
+  --tracking-tighter: -0.03em;
+  --tracking-tight: -0.018em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.04em;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  /* -------------------------------------------------------
+     Paleta — Light (padrão): Azul Naval + Cobre + Bordô
+     ------------------------------------------------------- */
+  --color-surface: #ffffff;
+  --color-surface-elevated: #fbfcfd;
+  --color-surface-muted: #f4f6f9;
+  --color-surface-inset: #edf0f5;
+
+  --color-bg: #fbfcfd;
+  --color-bg-secondary: #f4f6f9;
+  --color-bg-tertiary: #eaeef4;
+
+  --color-border: #d8dde7;
+  --color-border-strong: #b9c1d1;
+  --color-border-subtle: #ebedf3;
+
+  --color-text: #0f1b2d;
+  --color-text-secondary: #4a556b;
+  --color-text-muted: #7a8599;
+  --color-text-inverse: #fbfcfd;
+
+  /* Escala Navy (neutros baseados no azul marinho) */
+  --color-navy-50:  #f1f4f9;
+  --color-navy-100: #e1e7f1;
+  --color-navy-200: #c6d0e3;
+  --color-navy-300: #9fb0ce;
+  --color-navy-400: #6f85b0;
+  --color-navy-500: #4c6291;
+  --color-navy-600: #354a74;
+  --color-navy-700: #263859;
+  --color-navy-800: #192742;
+  --color-navy-900: #0f1b2d;
+  --color-navy-950: #070e1c;
+
+  /* Tons neutros escala (alias para compatibilidade) */
+  --color-ink-50: var(--color-navy-50);
+  --color-ink-100: var(--color-navy-100);
+  --color-ink-200: var(--color-navy-200);
+  --color-ink-300: var(--color-navy-300);
+  --color-ink-400: var(--color-navy-400);
+  --color-ink-500: var(--color-navy-500);
+  --color-ink-600: var(--color-navy-600);
+  --color-ink-700: var(--color-navy-700);
+  --color-ink-800: var(--color-navy-800);
+  --color-ink-900: var(--color-navy-900);
+  --color-ink-950: var(--color-navy-950);
+
+  /* Assinatura — Cobre Metálico (CTA e destaques premium) */
+  --color-copper-50:  #fff5ed;
+  --color-copper-100: #ffe5d1;
+  --color-copper-200: #ffc79e;
+  --color-copper-300: #ffa26a;
+  --color-copper-400: #f57e3c;
+  --color-copper-500: #d95e1e;
+  --color-copper-600: #b34611;
+  --color-copper-700: #8c330c;
+  --color-copper-800: #5f2209;
+  --color-copper-900: #3a1405;
+
+  /* Ouro polido — complemento do cobre */
+  --color-gold-50:  #fff8e7;
+  --color-gold-100: #fbedc0;
+  --color-gold-200: #f6dc88;
+  --color-gold-300: #edc14e;
+  --color-gold-400: #dea22a;
+  --color-gold-500: #c38312;
+  --color-gold-600: #a1640c;
+  --color-gold-700: #7c4909;
+  --color-gold-800: #583108;
+  --color-gold-900: #381d05;
+
+  /* Bordô Rubi — acento secundário / exclusividade */
+  --color-ruby-50:  #fbf0f2;
+  --color-ruby-100: #f5d7dd;
+  --color-ruby-200: #eab0bd;
+  --color-ruby-300: #dc7f94;
+  --color-ruby-400: #c8526f;
+  --color-ruby-500: #a93253;
+  --color-ruby-600: #882142;
+  --color-ruby-700: #681834;
+  --color-ruby-800: #470f25;
+  --color-ruby-900: #2a0816;
+
+  /* Seleção / Foco — Azul Naval Elétrico */
+  --color-indigo-50:  #eef1ff;
+  --color-indigo-100: #dce0ff;
+  --color-indigo-200: #b9c1ff;
+  --color-indigo-300: #8f98ff;
+  --color-indigo-400: #6a72ea;
+  --color-indigo-500: #4a4ad6;
+  --color-indigo-600: #3b38b2;
+  --color-indigo-700: #2f2b89;
+  --color-indigo-800: #211e63;
+  --color-indigo-900: #14114a;
+
+  /* Verde Esmeralda Escura — Sucesso */
+  --color-emerald-50:  #e9faf2;
+  --color-emerald-100: #c7f3dd;
+  --color-emerald-300: #66dab0;
+  --color-emerald-400: #2dc48a;
+  --color-emerald-500: #0a9062;
+  --color-emerald-600: #06734f;
+  --color-emerald-700: #04583d;
+  --color-emerald-800: #05402d;
+
+  /* Vermelho Perigo/Erro (não CTA) */
+  --color-red-50:  #fdf0f0;
+  --color-red-100: #fbe0e0;
+  --color-red-300: #fa9f9f;
+  --color-red-400: #f06464;
+  --color-red-500: #d93030;
+  --color-red-600: #b41b1b;
+  --color-red-700: #8f1212;
+  --color-red-800: #6a0e0e;
+
+  /* Âmbar — mantido alias para compatibilidade */
+  --color-amber-50:  var(--color-copper-50);
+  --color-amber-100: var(--color-copper-100);
+  --color-amber-200: var(--color-copper-200);
+  --color-amber-300: var(--color-copper-300);
+  --color-amber-400: var(--color-copper-400);
+  --color-amber-500: var(--color-copper-500);
+  --color-amber-600: var(--color-copper-600);
+  --color-amber-700: var(--color-copper-700);
+  --color-amber-800: var(--color-copper-800);
+  --color-amber-900: var(--color-copper-900);
+
+  /* Tokens semânticos — COMPATIBILIDADE com código existente */
+  --color-primary: var(--color-bg);
+  --color-secondary: var(--color-bg-secondary);
+  --color-accent: var(--color-copper-500);
+  --color-dark: var(--color-navy-950);
+
+  --color-text-primary: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-success: var(--color-emerald-500);
+  --color-warning: var(--color-gold-500);
+  --color-error: var(--color-red-500);
+  --color-selected: var(--color-indigo-500);
+
+  /* Novos tokens exclusivos */
+  --color-ruby: var(--color-ruby-500);
+  --color-copper: var(--color-copper-500);
+  --color-navy: var(--color-navy-700);
+
+  /* -------------------------------------------------------
+     Raios e espaçamento (escala 4px base)
+     ------------------------------------------------------- */
+  --radius-xs: 0.35rem;
+  --radius-sm: 0.55rem;
+  --radius-md: 0.85rem;
+  --radius-lg: 1.1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 2.75rem;
+  --radius-full: 9999px;
+
+  --spacing-18: 4.5rem;
+  --spacing-128: 32rem;
+
+  /* -------------------------------------------------------
+     Sombras premium (profundidade em camadas)
+     ------------------------------------------------------- */
+  --shadow-xs: 0 1px 2px 0 rgb(16 19 26 / 0.04), 0 1px 1px 0 rgb(16 19 26 / 0.03);
+  --shadow-sm: 0 2px 6px -2px rgb(16 19 26 / 0.05), 0 1px 3px -2px rgb(16 19 26 / 0.04);
+  --shadow-md: 0 10px 20px -10px rgb(16 19 26 / 0.12), 0 6px 12px -8px rgb(16 19 26 / 0.08);
+  --shadow-lg: 0 24px 40px -18px rgb(16 19 26 / 0.18), 0 10px 16px -10px rgb(16 19 26 / 0.10);
+  --shadow-xl: 0 32px 60px -24px rgb(16 19 26 / 0.24), 0 18px 32px -22px rgb(16 19 26 / 0.14);
+
+  /* Sombras temáticas (CTA assinatura) */
+  --shadow-accent: 0 8px 22px -8px rgb(222 111 5 / 0.35);
+  --shadow-accent-hover: 0 14px 28px -10px rgb(222 111 5 / 0.45);
+  --shadow-gold:   0 8px 22px -8px rgb(200 132 21 / 0.35);
+  --shadow-selected: 0 8px 22px -8px rgb(79 70 229 / 0.35);
+
+  /* -------------------------------------------------------
+     Transições
+     ------------------------------------------------------- */
+  --duration-instant: 100ms;
+  --duration-fast: 160ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --duration-slower: 520ms;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
 }
 
+/* =========================================================
+   Tema Escuro (auto via prefers-color-scheme + data attr)
+   ========================================================= */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --color-bg: #0b0d12;
+  --color-bg-secondary: #11141c;
+  --color-bg-tertiary: #161a24;
+  --color-surface: #0f1218;
+  --color-surface-elevated: #14171f;
+  --color-surface-muted: #1a1e28;
+  --color-surface-inset: #07090e;
+
+  --color-border: #242836;
+  --color-border-strong: #323748;
+  --color-border-subtle: #191d27;
+
+  --color-text: #eef0f6;
+  --color-text-secondary: #a1a7b8;
+  --color-text-muted: #6d7384;
+  --color-text-inverse: #10131a;
+
+  --color-ink-50: #111318;
+  --color-ink-100: #181b23;
+  --color-ink-200: #22262f;
+  --color-ink-300: #2d313d;
+  --color-ink-400: #3e4354;
+  --color-ink-500: #6d7384;
+  --color-ink-600: #a1a7b8;
+  --color-ink-700: #c7cbe0;
+  --color-ink-800: #e3e6f0;
+  --color-ink-900: #f5f6fa;
+  --color-ink-950: #ffffff;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  --shadow-sm: 0 2px 6px -2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 10px 20px -10px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 24px 40px -18px rgb(0 0 0 / 0.70);
+  --shadow-xl: 0 32px 60px -24px rgb(0 0 0 / 0.80);
+
+  /* compatibilidade tokens antigos */
+  --color-primary: var(--color-bg);
+  --color-secondary: var(--color-bg-secondary);
+}
+
+/* =========================================================
+   Base / Reset
+   ========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
-  background: var(--color-primary);
-  color: var(--color-text-primary);
+  padding: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at -10% -10%, color-mix(in oklab, var(--color-amber-200) 22%, transparent), transparent 60%),
+    radial-gradient(900px 520px at 110% 0%, color-mix(in oklab, var(--color-indigo-200) 20%, transparent), transparent 60%),
+    var(--color-bg);
+  color: var(--color-text);
   font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-* {
-  scrollbar-color: var(--color-border) transparent;
+.dark html,
+.dark body,
+:root.dark,
+:root.dark body {
+  background:
+    radial-gradient(1200px 700px at -10% -20%, color-mix(in oklab, var(--color-gold-700) 18%, transparent), transparent 60%),
+    radial-gradient(900px 520px at 115% 0%, color-mix(in oklab, var(--color-indigo-800) 22%, transparent), transparent 60%),
+    var(--color-bg);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-indigo-300) 55%, transparent);
+  color: var(--color-ink-900);
+}
+
+.dark ::selection {
+  background: color-mix(in oklab, var(--color-amber-300) 45%, transparent);
+  color: var(--color-ink-950);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink-900);
+  margin: 0;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: var(--color-ink-800);
+}
+
+h1 { font-size: var(--font-size-5xl); }
+h2 { font-size: var(--font-size-4xl); }
+h3 { font-size: var(--font-size-3xl); }
+h4 { font-size: var(--font-size-2xl); }
+h5 { font-size: var(--font-size-xl); }
+h6 { font-size: var(--font-size-lg); }
+
+p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+img, svg, video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
+/* =========================================================
+   Foco / Acessibilidade — Ring Premium
+   ========================================================= */
+
+:focus {
+  outline: none;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-selected);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--color-selected) !important;
+  box-shadow:
+    0 0 0 2px var(--color-bg),
+    0 0 0 4px color-mix(in oklab, var(--color-selected) 45%, transparent),
+    var(--shadow-selected);
+  border-radius: inherit;
+  transition: box-shadow var(--duration-fast) var(--ease-out);
 }
+
+/* =========================================================
+   Scrollbar premium (fina, elegante)
+   ========================================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-ink-400) 70%, transparent) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-ink-300) 60%, transparent);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-ink-400) 75%, transparent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-ink-500) 55%, transparent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-ink-400) 70%, transparent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* =========================================================
+   Utilities — Gradientes e padrão-assinatura
+   ========================================================= */
+
+@layer utilities {
+  .bg-gradient-signature {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-amber-400) 0%,
+      var(--color-amber-500) 45%,
+      var(--color-gold-500) 100%
+    );
+  }
+
+  .bg-gradient-signature-soft {
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-amber-300) 60%, transparent),
+      color-mix(in oklab, var(--color-gold-400) 45%, transparent)
+    );
+  }
+
+  .bg-gradient-dark-luxury {
+    background-image: linear-gradient(
+      160deg,
+      var(--color-ink-900) 0%,
+      var(--color-ink-800) 55%,
+      #1b1420 100%
+    );
+  }
+
+  .bg-gradient-hero {
+    background-image:
+      radial-gradient(70% 120% at 0% 0%, color-mix(in oklab, var(--color-amber-200) 55%, transparent) 0%, transparent 55%),
+      radial-gradient(60% 120% at 100% 0%, color-mix(in oklab, var(--color-indigo-200) 50%, transparent) 0%, transparent 60%),
+      linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-secondary) 100%);
+  }
+
+  .text-gradient-gold {
+    background-image: linear-gradient(135deg, var(--color-gold-500), var(--color-amber-400) 55%, var(--color-gold-600));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-gradient-signature {
+    background-image: linear-gradient(135deg, var(--color-amber-500), var(--color-gold-500) 60%, var(--color-indigo-500));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .surface-glass {
+    background: color-mix(in oklab, var(--color-surface) 72%, transparent);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid color-mix(in oklab, var(--color-border) 90%, transparent);
+  }
+
+  .surface-glass-strong {
+    background: color-mix(in oklab, var(--color-surface) 88%, transparent);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid color-mix(in oklab, var(--color-border) 92%, transparent);
+  }
+
+  .noise-texture {
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .ring-premium {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--color-border-strong) 55%, transparent),
+      0 10px 30px -12px color-mix(in oklab, var(--color-gold-500) 40%, transparent);
+  }
+}
+
+/* =========================================================
+   Inputs padrão (fallback quando o componente Input não é usado)
+   ========================================================= */
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+input[type='tel'],
+input[type='date'],
+input[type='time'],
+input[type='search'],
+select,
+textarea {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.9rem;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: color-mix(in oklab, var(--color-text-muted) 80%, transparent);
+}
+
+/* =========================================================
+   Animações padrão
+   ========================================================= */
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.animate-fade-in-up { animation: fade-in-up var(--duration-slow) var(--ease-out) both; }
+.animate-fade-in    { animation: fade-in var(--duration-slow) var(--ease-out) both; }
+.animate-pulse-soft { animation: pulse-soft 2.2s var(--ease-in-out) infinite; }

@@ -9,6 +9,7 @@ function mapRowParaBarbearia(row: any): Barbearia {
     address: row.address,
     phone: row.phone,
     ownerId: row.owner_id,
+    avatarUrl: row.avatar_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -23,6 +24,7 @@ export class SupabaseBarbeariaRepository implements IBarbeariaRepository {
         address: dados.address,
         phone: dados.phone,
         owner_id: dados.ownerId,
+        avatar_url: dados.avatarUrl ?? null,
       })
       .select('*')
       .single()
@@ -75,12 +77,13 @@ export class SupabaseBarbeariaRepository implements IBarbeariaRepository {
 
   async atualizar(
     id: string,
-    dados: Partial<Pick<Barbearia, 'name' | 'address' | 'phone'>>
+    dados: Partial<Pick<Barbearia, 'name' | 'address' | 'phone' | 'avatarUrl'>>
   ): Promise<Barbearia> {
     const payload: Record<string, any> = { updated_at: new Date().toISOString() }
     if (dados.name !== undefined) payload.name = dados.name
     if (dados.address !== undefined) payload.address = dados.address
     if (dados.phone !== undefined) payload.phone = dados.phone
+    if (dados.avatarUrl !== undefined) payload.avatar_url = dados.avatarUrl
 
     const { data, error } = await supabase
       .from('barbershops')

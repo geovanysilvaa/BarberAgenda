@@ -4,6 +4,7 @@ export interface CadastrarProfissionalDTO {
   phone: string
   password: string
   specialty?: string
+  avatarUrl?: string | null
   barbershopId: string
   ownerId: string
 }
@@ -15,6 +16,7 @@ export interface AtualizarProfissionalDTO {
   name?: string
   phone?: string
   specialty?: string
+  avatarUrl?: string | null
 }
 
 export interface RemoverProfissionalDTO {
@@ -27,6 +29,7 @@ export interface ProfissionalResponseDTO {
   id: string
   barbershopId: string
   specialty: string | null
+  avatarUrl?: string | null
   createdAt: string
   usuario: {
     id: string
@@ -34,5 +37,6 @@ export interface ProfissionalResponseDTO {
     email: string
     phone: string
     role: string
+    avatarUrl?: string | null
   }
 }

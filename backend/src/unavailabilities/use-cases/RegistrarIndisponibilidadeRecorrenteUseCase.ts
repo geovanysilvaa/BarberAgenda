@@ -4,6 +4,7 @@ import { RegistrarIndisponibilidadeRecorrenteDTO } from '../adapters/dtos/Indisp
 import { IndisponibilidadeRecorrente } from '../domain/entidades/IndisponibilidadeRecorrente'
 import { IProfissionalRepository } from '../../professionals/domain/interfaces/IProfissionalRepository'
 import { IBarbeariaRepository } from '../../barbershops/domain/interfaces/IBarbeariaRepository'
+import { IBusinessHoursRepository } from '../../barbershops/domain/interfaces/IBusinessHoursRepository'
 import { AppError } from '../../shared/errors/AppError'
 
 /**
@@ -16,7 +17,8 @@ export class RegistrarIndisponibilidadeRecorrenteUseCase implements IRegistrarIn
   constructor(
     private readonly indisponibilidadeRecorrenteRepository: IIndisponibilidadeRecorrenteRepository,
     private readonly profissionalRepository: IProfissionalRepository,
-    private readonly barbeariaRepository: IBarbeariaRepository
+    private readonly barbeariaRepository: IBarbeariaRepository,
+    private readonly businessHoursRepository: IBusinessHoursRepository
   ) {}
 
   async executar(dados: RegistrarIndisponibilidadeRecorrenteDTO): Promise<IndisponibilidadeRecorrente> {
@@ -37,6 +39,19 @@ export class RegistrarIndisponibilidadeRecorrenteUseCase implements IRegistrarIn
 
       if (!ehOwnerDaBarbearia) {
         throw new AppError('Você não tem permissão para acessar este recurso.', 403, 'FORBIDDEN')
+      }
+    }
+
+    // Valida se a barbearia abre neste dia da semana
+    const horarios = await this.businessHoursRepository.listarPorBarbeariaId(dados.barbershopId)
+    if (horarios.length > 0) {
+      const horarioDoDia = horarios.find((h) => h.dayOfWeek === dados.dayOfWeek)
+      if (!horarioDoDia) {
+        throw new AppError(
+          'A barbearia não abre neste dia da semana. Não é necessário cadastrar indisponibilidade.',
+          400,
+          'BARBERSHOP_CLOSED_ON_DAY'
+        )
       }
     }
 

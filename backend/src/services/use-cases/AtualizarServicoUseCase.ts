@@ -36,6 +36,8 @@ export class AtualizarServicoUseCase implements IAtualizarServicoUseCase {
       description: dados.description,
       durationMinutes: dados.durationMinutes,
       price: dados.price,
+      imageUrl: dados.imageUrl,
+      avatarUrl: dados.avatarUrl,
     })
   }
 }

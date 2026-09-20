@@ -8,6 +8,7 @@ function mapRowParaProfissional(row: any): Profissional {
     userId: row.user_id,
     barbershopId: row.barbershop_id,
     specialty: row.specialty,
+    avatarUrl: row.avatar_url ?? null,
     createdAt: row.created_at,
   }
 }
@@ -19,6 +20,7 @@ function mapRowParaProfissionalPublico(row: any): ProfissionalPublico {
     id: row.id,
     barbershopId: row.barbershop_id,
     specialty: row.specialty,
+    avatarUrl: row.avatar_url ?? usuario?.avatar_url ?? null,
     createdAt: row.created_at,
     name: usuario?.name ?? '',
   }
@@ -32,6 +34,7 @@ export class SupabaseProfissionalRepository implements IProfissionalRepository {
         user_id: dados.userId,
         barbershop_id: dados.barbershopId,
         specialty: dados.specialty,
+        avatar_url: dados.avatarUrl ?? null,
       })
       .select('*')
       .single()
@@ -43,7 +46,7 @@ export class SupabaseProfissionalRepository implements IProfissionalRepository {
   async listarPorBarbershopId(barbershopId: string): Promise<ProfissionalPublico[]> {
     const { data, error } = await supabase
       .from('professionals')
-      .select('id, barbershop_id, specialty, created_at, users(name)')
+      .select('id, barbershop_id, specialty, created_at, avatar_url, users(name, avatar_url)')
       .eq('barbershop_id', barbershopId)
       .order('created_at', { ascending: false })
 
@@ -54,7 +57,7 @@ export class SupabaseProfissionalRepository implements IProfissionalRepository {
   async buscarPorId(id: string, barbershopId: string): Promise<ProfissionalPublico | null> {
     const { data, error } = await supabase
       .from('professionals')
-      .select('id, barbershop_id, specialty, created_at, users(name)')
+      .select('id, barbershop_id, specialty, created_at, avatar_url, users(name, avatar_url)')
       .eq('id', id)
       .eq('barbershop_id', barbershopId)
       .maybeSingle()
@@ -93,9 +96,10 @@ export class SupabaseProfissionalRepository implements IProfissionalRepository {
     return data ? mapRowParaProfissional(data) : null
   }
 
-  async atualizar(id: string, dados: Partial<Pick<Profissional, 'specialty'>>): Promise<Profissional> {
+  async atualizar(id: string, dados: Partial<Pick<Profissional, 'specialty' | 'avatarUrl'>>): Promise<Profissional> {
     const payload: Record<string, any> = {}
     if (dados.specialty !== undefined) payload.specialty = dados.specialty
+    if (dados.avatarUrl !== undefined) payload.avatar_url = dados.avatarUrl
 
     const { data, error } = await supabase
       .from('professionals')

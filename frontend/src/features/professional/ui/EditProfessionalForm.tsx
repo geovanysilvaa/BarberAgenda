@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { User, Scissors, Check, X } from 'lucide-react'
 import { Input } from '../../../shared/ui/Input'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorMessage } from '../../../shared/ui/ErrorMessage'
@@ -43,18 +44,45 @@ export function EditProfessionalForm({ professional, onUpdate, onSuccess, onCanc
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
-      <Input label="Nome" error={errors.name?.message} {...register('name')} />
-      <Input label="Especialidade" error={errors.specialty?.message} {...register('specialty')} />
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <Input
+        label="Nome completo"
+        icon={User}
+        placeholder="Nome do profissional"
+        error={errors.name?.message}
+        {...register('name')}
+      />
+
+      <Input
+        label="Especialidade"
+        icon={Scissors}
+        placeholder="Ex: Cortes e Barba"
+        error={errors.specialty?.message}
+        {...register('specialty')}
+      />
 
       {errors.root && <ErrorMessage>{errors.root.message}</ErrorMessage>}
 
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" loading={isSubmitting} className="justify-center">
-          Salvar
-        </Button>
-        <Button type="button" variant="secondary" size="sm" onClick={onCancel} className="justify-center">
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          className="px-3.5 py-1.5 text-xs"
+        >
+          <X size={14} />
           Cancelar
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          loading={isSubmitting}
+          className="px-4 py-1.5 text-xs shadow-2xs"
+        >
+          <Check size={14} />
+          Salvar
         </Button>
       </div>
     </form>

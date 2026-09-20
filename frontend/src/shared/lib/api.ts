@@ -23,10 +23,31 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   })
 
-  const data = response.status === 204 ? null : await response.json()
+  let data: any = null
+  const contentType = response.headers.get('content-type') || ''
+  if (response.status !== 204) {
+    if (contentType.includes('application/json')) {
+      data = await response.json()
+    } else {
+      const text = await response.text()
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = { message: text }
+      }
+    }
+  }
 
   if (!response.ok) {
-    throw new ApiError(data?.message ?? 'Erro inesperado.', data?.error ?? 'UNKNOWN_ERROR', response.status)
+    let message = data?.message || 'Erro inesperado no servidor.'
+    if (data?.details && typeof data.details === 'object') {
+      const errorList = Object.values(data.details).flat().filter(Boolean)
+      if (errorList.length > 0) message = errorList.join(' ')
+    }
+    if (typeof message === 'string' && message.trim().startsWith('<')) {
+      message = `O servidor retornou erro HTTP ${response.status} (${response.statusText || 'Não encontrado'}). Verifique a rota da API ou se o backend está online.`
+    }
+    throw new ApiError(message, data?.error ?? 'UNKNOWN_ERROR', response.status)
   }
 
   return data as T
