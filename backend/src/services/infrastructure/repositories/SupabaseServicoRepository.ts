@@ -58,6 +58,18 @@ export class SupabaseServicoRepository implements IServicoRepository {
     return data ? mapRowParaServico(data) : null
   }
 
+  async buscarPorIds(ids: string[]): Promise<Servico[]> {
+    if (ids.length === 0) return []
+
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .in('id', [...new Set(ids)])
+
+    if (error) throw new Error(`Erro ao buscar serviços por ids: ${error.message}`)
+    return (data ?? []).map(mapRowParaServico)
+  }
+
   async atualizar(id: string, barbershopId: string, dados: Partial<Omit<Servico, 'id' | 'createdAt'>>): Promise<Servico> {
     const updateData: any = {}
     if (dados.name) updateData.name = dados.name

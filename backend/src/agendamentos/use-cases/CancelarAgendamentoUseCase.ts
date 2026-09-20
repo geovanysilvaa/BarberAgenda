@@ -55,31 +55,33 @@ export class CancelarAgendamentoUseCase implements ICancelarAgendamentoUseCase {
       status: 'cancelado',
     })
 
-    // RF013 — notifica o cliente por e-mail. Melhor esforço: falha no
-    // envio não pode derrubar o cancelamento, que já foi persistido.
-    try {
-      const [cliente, profissional, servico] = await Promise.all([
-        this.usuarioRepository.buscarPorId(agendamento.clientId),
-        this.profissionalRepository.buscarPorIdGlobal(agendamento.professionalId),
-        this.servicoRepository.buscarPorId(agendamento.serviceId, agendamento.barbershopId),
-      ])
+    // RF013 — notifica o cliente por e-mail em background (fire-and-forget)
+    // para não bloquear a resposta do endpoint esperando o SMTP do Gmail.
+    setImmediate(async () => {
+      try {
+        const [cliente, profissional, servico] = await Promise.all([
+          this.usuarioRepository.buscarPorId(agendamento.clientId),
+          this.profissionalRepository.buscarPorIdGlobal(agendamento.professionalId),
+          this.servicoRepository.buscarPorId(agendamento.serviceId, agendamento.barbershopId),
+        ])
 
-      if (cliente) {
-        const usuarioProfissional = profissional
-          ? await this.usuarioRepository.buscarPorId(profissional.userId)
-          : null
+        if (cliente) {
+          const usuarioProfissional = profissional
+            ? await this.usuarioRepository.buscarPorId(profissional.userId)
+            : null
 
-        await this.notificationService.notificarAgendamentoCancelado({
-          clienteEmail: cliente.email,
-          clienteNome: cliente.name,
-          profissionalNome: usuarioProfissional?.name ?? '',
-          servicoNome: servico?.name ?? '',
-          date: agendamento.date,
-          startTime: agendamento.startTime.slice(0, 5),
-        })
+          await this.notificationService.notificarAgendamentoCancelado({
+            clienteEmail: cliente.email,
+            clienteNome: cliente.name,
+            profissionalNome: usuarioProfissional?.name ?? '',
+            servicoNome: servico?.name ?? '',
+            date: agendamento.date,
+            startTime: agendamento.startTime.slice(0, 5),
+          })
+        }
+      } catch (err) {
+        console.error('Falha ao enviar notificação de cancelamento:', err)
       }
-    } catch (err) {
-      console.error('Falha ao enviar notificação de cancelamento:', err)
-    }
+    })
   }
 }

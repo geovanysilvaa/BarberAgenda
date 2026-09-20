@@ -104,23 +104,26 @@ export class CriarAgendamentoUseCase implements ICriarAgendamentoUseCase {
 
     const usuarioProfissional = await this.usuarioRepository.buscarPorId(profissional.userId)
 
-    // RF012 — notifica o cliente por e-mail. Melhor esforço: falha no
-    // envio não pode derrubar a criação do agendamento, já persistido.
-    try {
-      const cliente = await this.usuarioRepository.buscarPorId(dados.clientId)
-      if (cliente) {
-        await this.notificationService.notificarAgendamentoCriado({
-          clienteEmail: cliente.email,
-          clienteNome: cliente.name,
-          profissionalNome: usuarioProfissional?.name ?? '',
-          servicoNome: servico.name,
-          date: agendamentoCriado.date,
-          startTime: agendamentoCriado.startTime.slice(0, 5),
-        })
+    // RF012 — notifica o cliente por e-mail em background (fire-and-forget)
+    // para não bloquear a resposta do endpoint esperando o SMTP do Gmail
+    // (1–5s de latência típica em ambientes de nuvem).
+    setImmediate(async () => {
+      try {
+        const cliente = await this.usuarioRepository.buscarPorId(dados.clientId)
+        if (cliente) {
+          await this.notificationService.notificarAgendamentoCriado({
+            clienteEmail: cliente.email,
+            clienteNome: cliente.name,
+            profissionalNome: usuarioProfissional?.name ?? '',
+            servicoNome: servico.name,
+            date: agendamentoCriado.date,
+            startTime: agendamentoCriado.startTime.slice(0, 5),
+          })
+        }
+      } catch (err) {
+        console.error('Falha ao enviar notificação de agendamento:', err)
       }
-    } catch (err) {
-      console.error('Falha ao enviar notificação de agendamento:', err)
-    }
+    })
 
     return {
       id: agendamentoCriado.id,

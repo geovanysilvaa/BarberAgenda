@@ -12,4 +12,35 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
   },
+  // Pré-bundla dependências pesadas para acelerar dev e build
+  optimizeDeps: {
+    include: ['lucide-react', '@hookform/resolvers/zod'],
+    esbuildOptions: { target: 'es2020' },
+  },
+  build: {
+    // Browsers modernos (suportados há ~5 anos) — reduz polyfills e tamanho do bundle.
+    target: 'es2020',
+    cssMinify: true,
+    minify: 'esbuild',
+    sourcemap: false,
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        // Code splitting: bibliotecas pesadas vão para chunks separados
+        // e são cacheadas individualmente pelo navegador.
+        // Sintaxe de função usada porque Vite 8 (Rollup 4) tipa manualChunks
+        // como ManualChunksFunction — objeto literal dá erro de TS.
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (/react|react-dom|react-router-dom/.test(id)) return 'react-vendor'
+            if (/react-hook-form|@hookform|zod/.test(id)) return 'form-vendor'
+            if (/supabase/.test(id)) return 'supabase-vendor'
+            // Outras libs grandes ficam num chunk genérico de vendor.
+            return 'vendor'
+          }
+          return undefined
+        },
+      },
+    },
+  },
 })

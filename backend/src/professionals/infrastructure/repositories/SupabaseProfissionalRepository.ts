@@ -96,6 +96,18 @@ export class SupabaseProfissionalRepository implements IProfissionalRepository {
     return data ? mapRowParaProfissional(data) : null
   }
 
+  async buscarPorIdsGlobal(ids: string[]): Promise<Profissional[]> {
+    if (ids.length === 0) return []
+
+    const { data, error } = await supabase
+      .from('professionals')
+      .select('*')
+      .in('id', [...new Set(ids)])
+
+    if (error) throw new Error(`Erro ao buscar profissionais por ids: ${error.message}`)
+    return (data ?? []).map(mapRowParaProfissional)
+  }
+
   async atualizar(id: string, dados: Partial<Pick<Profissional, 'specialty' | 'avatarUrl'>>): Promise<Profissional> {
     const payload: Record<string, any> = {}
     if (dados.specialty !== undefined) payload.specialty = dados.specialty
