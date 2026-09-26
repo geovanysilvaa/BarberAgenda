@@ -1,54 +1,153 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
-  Store,
-  Scissors,
-  Check,
+  ArrowLeft,
+  Star,
   MapPin,
   Phone,
   Clock,
-  ArrowLeft,
-  User,
-  Search,
-  Copy,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Info,
-  CalendarCheck,
+  User as UserIcon,
+  Scissors,
+  RefreshCw,
 } from 'lucide-react'
 import { useBarbeiro } from '../features/barbershop/model/useBarbeiro'
 import { useAgendamento } from '../features/agendamento/model/useAgendamento'
 import { useAuth } from '../features/auth/model/useAuth'
-import { Button } from '../shared/ui/Button'
-import { Avatar } from '../shared/ui/Avatar'
 import { LoadingSpinner } from '../shared/ui/LoadingSpinner'
 import { ErrorMessage } from '../shared/ui/ErrorMessage'
+import { BottomNav } from '../shared/ui/BottomNav'
 import type { BusinessHours } from '../entities/barbershop/types'
+import type { Professional } from '../entities/professional/types'
+import type { Service } from '../entities/service/types'
 
 function formatPrice(price: number): string {
   return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-const DIAS_SEMANA = [
-  'Domingo',
-  'Segunda-feira',
-  'Terça-feira',
-  'Quarta-feira',
-  'Quinta-feira',
-  'Sexta-feira',
-  'Sábado',
-]
+function formatarTelefone(telefone: string): string {
+  const digitos = telefone.replace(/\D/g, '')
+  if (digitos.length === 11) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`
+  }
+  if (digitos.length === 10) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`
+  }
+  return telefone
+}
 
-// Aberto/fechado agora, comparando com o horário de funcionamento do dia
-// da semana atual (hora local do navegador).
 function estaAbertoAgora(horarios: BusinessHours[]): boolean {
   const agora = new Date()
   const horarioDeHoje = horarios.find((h) => h.dayOfWeek === agora.getDay())
   if (!horarioDeHoje) return false
-
   const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
   return horaAtual >= horarioDeHoje.openTime.slice(0, 5) && horaAtual < horarioDeHoje.closeTime.slice(0, 5)
+}
+
+function getHorarioHoje(horarios: BusinessHours[]): string | null {
+  const hoje = new Date().getDay()
+  const h = horarios.find((x) => x.dayOfWeek === hoje)
+  if (!h) return null
+  return `${h.openTime.slice(0, 5)} - ${h.closeTime.slice(0, 5)}`
+}
+
+type TabId = 'servicos' | 'profissionais'
+
+function ProfessionalAvatarCard({
+  profissional,
+  selecionado,
+  onClick,
+}: {
+  profissional: Professional
+  selecionado: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2.5 w-[96px] shrink-0 group"
+    >
+      <div
+        className="w-20 h-20 rounded-full p-[3px] transition-all duration-200 group-hover:shadow-lg group-hover:shadow-[#6d5bd9]/25"
+        style={{
+          background: selecionado
+            ? 'linear-gradient(135deg, #6d5bd9 0%, #8b7fe9 100%)'
+            : 'linear-gradient(135deg, #e9e3ff 0%, #f4efff 100%)',
+          boxShadow: selecionado ? '0 4px 12px -3px rgba(109,91,217,0.45)' : undefined,
+        }}
+      >
+        <div className="w-full h-full rounded-full bg-white overflow-hidden flex items-center justify-center">
+          {profissional.avatarUrl ? (
+            <img
+              src={profissional.avatarUrl}
+              alt={`Foto de ${profissional.name}`}
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+              }}
+            />
+          ) : (
+            <UserIcon
+              size={28}
+              className={selecionado ? 'text-[#6d5bd9]/70' : 'text-[#6d5bd9]/35'}
+            />
+          )}
+        </div>
+      </div>
+      <span
+        className="text-[15px] font-bold tracking-tight line-clamp-1"
+        style={{ color: selecionado ? '#6d5bd9' : '#2b2638' }}
+      >
+        {profissional.name}
+      </span>
+    </button>
+  )
+}
+
+function ServiceCard({
+  servico,
+  onAgendar,
+}: {
+  servico: Service
+  onAgendar: () => void
+}) {
+  const precoFormatado = formatPrice(servico.price)
+  return (
+    <div
+      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#ebe7f5] transition-all duration-200 hover:border-[#d3c8ff] hover:shadow-[0_3px_12px_-4px_rgba(109,91,217,0.22)]"
+      style={{ padding: '18px 20px', borderRadius: '18px' }}
+    >
+      <div className="flex flex-col gap-2 min-w-0 flex-1">
+        <h4
+          className="font-bold tracking-tight text-[#1a1722] leading-tight line-clamp-2"
+          style={{ fontSize: '18px' }}
+        >
+          {servico.name}
+        </h4>
+        <p
+          className="text-[14px] text-[#666172] font-medium leading-snug"
+          style={{ color: '#666172' }}
+        >
+          Duração: {servico.durationMinutes} min • {precoFormatado}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onAgendar}
+        className="shrink-0 self-start sm:self-center inline-flex items-center justify-center text-white font-bold hover:bg-[#5d4bc9] active:scale-[0.985] transition-all duration-150 shadow-[0_3px_10px_-3px_rgba(109,91,217,0.45)]"
+        style={{
+          backgroundColor: '#6d5bd9',
+          padding: '11px 23px',
+          borderRadius: '999px',
+          fontSize: '15px',
+          minWidth: '110px',
+        }}
+      >
+        Agendar
+      </button>
+    </div>
+  )
 }
 
 export function BarbershopDetailPage() {
@@ -69,15 +168,11 @@ export function BarbershopDetailPage() {
   const { buscarMeuProfissional } = useAgendamento()
   const { user } = useAuth()
 
-  const [professionalId, setProfessionalId] = useState<string | null>(null)
-  const [serviceId, setServiceId] = useState<string | null>(null)
+  const [tab, setTab] = useState<TabId>('servicos')
   const [meuProfissionalId, setMeuProfissionalId] = useState<string | null>(null)
-  const [mostrarHorarios, setMostrarHorarios] = useState(false)
-  const [buscaServico, setBuscaServico] = useState('')
-  const [copiadoEndereco, setCopiadoEndereco] = useState(false)
+  const [profissionalSelecionadoId, setProfissionalSelecionadoId] = useState<string | null>(null)
 
   const ehProfissional = !!user?.roles.includes('profissional')
-  const hojeDiaSemana = new Date().getDay()
 
   useEffect(() => {
     if (!id) return
@@ -96,481 +191,283 @@ export function BarbershopDetailPage() {
     })
   }, [id, ehProfissional, buscarMeuProfissional])
 
-  // Barbeiro não pode agendar um horário com ele mesmo
-  const profissionaisSelecionaveis = useMemo(() => {
-    return profissionais.filter((p) => p.id !== meuProfissionalId)
-  }, [profissionais, meuProfissionalId])
+  const profissionaisSelecionaveis = useMemo(
+    () => profissionais.filter((p) => p.id !== meuProfissionalId),
+    [profissionais, meuProfissionalId],
+  )
 
-  const servicosFiltrados = useMemo(() => {
-    if (!buscaServico.trim()) return servicos
-    const termo = buscaServico.toLowerCase().trim()
-    return servicos.filter(
-      (s) =>
-        s.name.toLowerCase().includes(termo) ||
-        (s.description && s.description.toLowerCase().includes(termo))
-    )
-  }, [servicos, buscaServico])
+  useEffect(() => {
+    if (profissionaisSelecionaveis.length > 0 && !profissionalSelecionadoId) {
+      setProfissionalSelecionadoId(profissionaisSelecionaveis[0].id)
+    }
+  }, [profissionaisSelecionaveis, profissionalSelecionadoId])
 
-  function handleCopiarEndereco() {
-    if (!barbearia?.address) return
-    navigator.clipboard.writeText(barbearia.address)
-    setCopiadoEndereco(true)
-    setTimeout(() => setCopiadoEndereco(false), 2500)
-  }
-
-  function handleContinuar() {
-    if (!professionalId || !serviceId) return
-    navigate(`/appointments/new?barbershopId=${id}&professionalId=${professionalId}&serviceId=${serviceId}`)
-  }
-
-  const profissionalSelecionado = profissionais.find((p) => p.id === professionalId)
-  const servicoSelecionado = servicos.find((s) => s.id === serviceId)
-  const temSelecao = !!professionalId || !!serviceId
-  const selecaoCompleta = !!professionalId && !!serviceId
   const aberto = estaAbertoAgora(horarios)
+  const horarioHoje = getHorarioHoje(horarios)
+
+  function handleAgendar(servico: Service) {
+    const profissionalParaUsar =
+      profissionalSelecionadoId ??
+      (profissionaisSelecionaveis.length === 1 ? profissionaisSelecionaveis[0].id : undefined)
+    const params = new URLSearchParams()
+    params.set('barbershopId', id ?? '')
+    params.set('serviceId', servico.id)
+    if (profissionalParaUsar) params.set('professionalId', profissionalParaUsar)
+    navigate(`/appointments/new?${params.toString()}`)
+  }
+
+  function handleVoltar() {
+    navigate(-1)
+  }
 
   return (
-    <div className="min-h-screen bg-primary">
-      <main className={`max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8 ${temSelecao ? 'pb-36 sm:pb-32' : ''}`}>
-        {/* Navegação de retorno */}
-        <div>
-          <Link
-            to="/barbershops"
-            className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors font-medium group"
+    <div className="min-h-screen bg-[#fef7ff] pb-28 md:pb-8">
+      {/* Header simples (barra superior) */}
+      <header
+        className="bg-[#fef7ff] sticky top-0 z-30 border-b border-[#ece8f5]/50"
+      >
+        <div className="max-w-md mx-auto px-5 h-16 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleVoltar}
+            aria-label="Voltar"
+            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#e9e3ff] active:bg-[#d3c8ff] transition-colors"
           >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            <span>Voltar para todas as barbearias</span>
-          </Link>
+            <ArrowLeft size={24} strokeWidth={2.2} className="text-[#1a1722]" />
+          </button>
+          <h1
+            className="flex-1 min-w-0 font-bold tracking-tight text-[#1a1722] truncate"
+            style={{ fontSize: '21px', letterSpacing: '-0.01em' }}
+          >
+            {barbearia?.name ?? 'Barbearia'}
+          </h1>
         </div>
+      </header>
 
-        {/* Loading Spinner */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <LoadingSpinner size="lg" />
-            <p className="text-sm text-text-secondary">Carregando informações da barbearia...</p>
+      <main className="max-w-md mx-auto flex flex-col">
+        {/* Loading */}
+        {loading && !barbearia && (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 px-5">
+            <LoadingSpinner size="lg" tone="selected" />
+            <p className="text-sm text-[#6b6778]">Carregando informações da barbearia...</p>
           </div>
         )}
 
-        {/* Mensagem de Erro */}
+        {/* Erro */}
         {error && (
-          <div className="max-w-xl">
+          <div className="px-5 pt-5 flex flex-col gap-3">
             <ErrorMessage>{error}</ErrorMessage>
+            <div className="flex">
+              <button
+                type="button"
+                onClick={() => id && buscarBarbearia(id).then(() => listarProfissionais(id)).then(() => listarServicos(id)).then(() => listarHorarios(id))}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#6d5bd9] bg-[#e9e3ff] rounded-xl hover:bg-[#d3c8ff] transition-colors"
+              >
+                <RefreshCw size={14} />
+                Tentar novamente
+              </button>
+            </div>
           </div>
         )}
 
         {barbearia && (
           <>
-            {/* HERO BANNER DA BARBEARIA */}
-            <div className="relative overflow-hidden rounded-3xl shadow-xl border border-white/10 text-white">
-              {/* Foto de capa em background */}
+            {/* FOTO DE CAPA */}
+            <div
+              className="relative w-full bg-gradient-to-br from-[#6d5bd9]/12 via-white to-[#efe8ff]"
+              style={{ aspectRatio: '16 / 9' }}
+            >
               {barbearia.avatarUrl ? (
-                <>
-                  <img
-                    src={barbearia.avatarUrl}
-                    alt={barbearia.name}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-br from-dark/95 via-slate-900/85 to-indigo-950/90" />
-                </>
+                <img
+                  src={barbearia.avatarUrl}
+                  alt={`Fachada da ${barbearia.name}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                  }}
+                />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-dark via-slate-900 to-indigo-950" />
-              )}
-
-              <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="flex items-start sm:items-center gap-4 sm:gap-5 min-w-0">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-accent/20 backdrop-blur-sm border border-accent/30 text-white flex items-center justify-center shrink-0 shadow-md overflow-hidden">
-                    {barbearia.avatarUrl ? (
-                      <img
-                        src={barbearia.avatarUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                        }}
-                      />
-                    ) : (
-                      <Store size={32} strokeWidth={1.75} className="text-accent" />
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white truncate">
-                        {barbearia.name}
-                      </h1>
-
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${
-                          aberto
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : 'bg-white/10 text-white/70 border border-white/20'
-                        }`}
-                      >
-                        <span
-                          className={`w-2 h-2 rounded-full ${aberto ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'}`}
-                        />
-                        {aberto ? 'Aberto agora' : 'Fechado no momento'}
-                      </span>
-                    </div>
-
-                    {/* Endereço e Contato */}
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs sm:text-sm text-white/80">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={15} className="text-accent shrink-0" />
-                        <span className="truncate max-w-xs sm:max-w-md">{barbearia.address}</span>
-                      </div>
-
-                      <a
-                        href={`tel:${barbearia.phone}`}
-                        className="flex items-center gap-1.5 hover:text-white transition-colors underline-offset-2 hover:underline"
-                      >
-                        <Phone size={15} className="text-accent shrink-0" />
-                        <span>{barbearia.phone}</span>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ações de Informação Rápida */}
-                <div className="flex flex-wrap items-center gap-2.5 pt-4 lg:pt-0 border-t lg:border-t-0 border-white/10 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleCopiarEndereco}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/15 cursor-pointer"
-                  >
-                    <Copy size={14} />
-                    {copiadoEndereco ? 'Endereço copiado!' : 'Copiar endereço'}
-                  </button>
-
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(barbearia.name + ' ' + barbearia.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/15"
-                  >
-                    <ExternalLink size={14} />
-                    Ver no Maps
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={() => setMostrarHorarios((v) => !v)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-accent/30 hover:bg-accent/40 text-white transition-colors border border-accent/50 cursor-pointer"
-                  >
-                    <Clock size={14} />
-                    <span>Horários da semana</span>
-                    {mostrarHorarios ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* CARD EXPANSÍVEL DE HORÁRIOS DE ATENDIMENTO */}
-              {mostrarHorarios && (
-                <div className="mt-6 pt-6 border-t border-white/15 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Clock size={16} className="text-accent" />
-                      Horário de Funcionamento Semanal
-                    </h3>
-                    <span className="text-2xs text-white/60">Fuso horário local</span>
-                  </div>
-
-                  {horarios.length === 0 ? (
-                    <p className="text-xs text-white/60 italic">
-                      Os horários de funcionamento desta barbearia ainda não foram configurados.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                      {DIAS_SEMANA.map((diaNome, diaIndex) => {
-                        const horarioDoDia = horarios.find((h) => h.dayOfWeek === diaIndex)
-                        const ehHoje = diaIndex === hojeDiaSemana
-
-                        return (
-                          <div
-                            key={diaIndex}
-                            className={`p-3 rounded-xl text-xs flex items-center justify-between border ${
-                              ehHoje
-                                ? 'bg-white/20 border-accent text-white font-semibold shadow-xs'
-                                : 'bg-white/5 border-white/10 text-white/70'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span>{diaNome}</span>
-                              {ehHoje && (
-                                <span className="text-3xs bg-accent px-1.5 py-0.5 rounded-full text-white font-bold uppercase">
-                                  Hoje
-                                </span>
-                              )}
-                            </div>
-                            <span className="font-mono font-medium">
-                              {horarioDoDia
-                                ? `${horarioDoDia.openTime.slice(0, 5)} - ${horarioDoDia.closeTime.slice(0, 5)}`
-                                : 'Fechado'}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Scissors size={56} strokeWidth={1.7} className="text-[#6d5bd9]/35" />
                 </div>
               )}
             </div>
 
-            {/* Aviso para barbeiro logado se houver */}
-            {ehProfissional && meuProfissionalId && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 text-xs text-amber-800">
-                <Info size={18} className="text-amber-600 shrink-0" />
-                <span>
-                  Você faz parte da equipe desta barbearia. Por regras do sistema, não é possível agendar horários consigo mesmo.
+            {/* INFO BARBEARIA (abaixo da foto) */}
+            <section
+              className="bg-[#efe8ff] flex flex-col gap-2.5"
+              style={{ padding: '17px 20px 20px', borderBottomLeftRadius: '24px', borderBottomRightRadius: '24px' }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <h2
+                  className="font-extrabold tracking-tight text-[#1a1722] leading-tight line-clamp-1"
+                  style={{ fontSize: '2rem', letterSpacing: '-0.025em' }}
+                >
+                  {barbearia.name}
+                </h2>
+                <div className="flex items-center gap-1.5 shrink-0 pt-1">
+                  <Star size={17} className="text-[#eab308] fill-[#eab308]" />
+                  <span
+                    className="font-bold tracking-tight text-[#2b2638]"
+                    style={{ fontSize: '18px' }}
+                  >
+                    4,9
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-[15px] text-[#44404f] font-medium leading-snug flex-wrap">
+                <MapPin size={16} strokeWidth={2} className="text-[#6f6880] shrink-0" />
+                <span className="min-w-0 truncate">{barbearia.address}</span>
+                <span className="text-[#6f6880]">•</span>
+                <Phone size={16} strokeWidth={2} className="text-[#6f6880] shrink-0" />
+                <span className="shrink-0">{formatarTelefone(barbearia.phone)}</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-[15px] font-bold tracking-tight pt-0.5">
+                <span className="text-[#6d5bd9]">
+                  {aberto ? 'Aberto hoje' : 'Fechado hoje'}
                 </span>
-              </div>
-            )}
-
-            {/* ETAPA 1: ESCOLHA DO PROFISSIONAL */}
-            <section className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-xl bg-selected text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                    1
-                  </span>
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-                      Escolha o Profissional
-                    </h2>
-                    <p className="text-xs sm:text-sm text-text-secondary">
-                      Selecione quem irá realizar o seu atendimento
-                    </p>
-                  </div>
-                </div>
-
-                {profissionalSelecionado && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-selected bg-selected/10 px-3 py-1 rounded-full border border-selected/20">
-                    <Check size={14} />
-                    {profissionalSelecionado.name} selecionado
-                  </span>
+                {horarioHoje && (
+                  <>
+                    <span className="text-[#6d5bd9]">•</span>
+                    <span className="text-[#6d5bd9]">{horarioHoje}</span>
+                  </>
                 )}
+                <Clock
+                  size={15}
+                  strokeWidth={2.2}
+                  className="text-[#6d5bd9] shrink-0 ml-0.5"
+                />
               </div>
-
-              {profissionaisSelecionaveis.length === 0 ? (
-                <div className="bg-secondary border border-border rounded-2xl p-8 text-center flex flex-col items-center gap-2">
-                  <User size={24} className="text-text-secondary" />
-                  <p className="text-sm text-text-secondary">
-                    Nenhum profissional disponível para agendamento no momento.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-                  {profissionaisSelecionaveis.map((profissional) => {
-                    const selecionado = professionalId === profissional.id
-                    return (
-                      <button
-                        key={profissional.id}
-                        type="button"
-                        onClick={() => setProfessionalId(profissional.id)}
-                        className="text-left w-full cursor-pointer focus:outline-none"
-                      >
-                        <div
-                          className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200 ${
-                            selecionado
-                              ? 'border-selected bg-selected/5 shadow-sm ring-2 ring-selected/20'
-                              : 'border-border bg-secondary hover:border-selected/40 hover:bg-white'
-                          }`}
-                        >
-                          <Avatar name={profissional.name} size="md" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-text-primary text-sm sm:text-base truncate">
-                              {profissional.name}
-                            </p>
-                            <p className="text-text-secondary text-xs truncate mt-0.5">
-                              {profissional.specialty || 'Especialista em cortes & barbas'}
-                            </p>
-                          </div>
-                          <span
-                            className={`shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                              selecionado
-                                ? 'bg-selected text-white'
-                                : 'border border-border text-text-secondary bg-white'
-                            }`}
-                          >
-                            {selecionado ? <Check size={16} strokeWidth={2.5} /> : <User size={16} />}
-                          </span>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
             </section>
 
-            {/* ETAPA 2: ESCOLHA DO SERVIÇO */}
-            <section className="flex flex-col gap-4 pt-4 border-t border-border">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-xl bg-selected text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                    2
-                  </span>
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-                      Escolha o Serviço
-                    </h2>
-                    <p className="text-xs sm:text-sm text-text-secondary">
-                      Selecione o procedimento ou combo desejado
-                    </p>
-                  </div>
-                </div>
-
-                {/* Barra de busca de serviços */}
-                {servicos.length > 4 && (
-                  <div className="relative w-full sm:w-64">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Buscar serviço..."
-                      value={buscaServico}
-                      onChange={(e) => setBuscaServico(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 bg-secondary border border-border rounded-xl text-xs text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-selected"
-                    />
-                  </div>
-                )}
+            {/* TABS (Serviços / Profissionais) */}
+            <section className="px-5 pt-6 flex flex-col gap-5">
+              <div
+                className="flex items-center gap-2 flex-wrap"
+                role="tablist"
+                aria-label="Informações da barbearia"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'servicos'}
+                  onClick={() => setTab('servicos')}
+                  className={[
+                    'inline-flex items-center justify-center',
+                    'rounded-full transition-all duration-150',
+                    'font-bold tracking-tight',
+                    tab === 'servicos'
+                      ? 'bg-[#e9e3ff] text-[#6d5bd9] shadow-[0_1px_3px_rgba(109,91,217,0.15)]'
+                      : 'bg-[#ece8f5] text-[#5b5669] hover:bg-[#e4def0]',
+                  ].join(' ')}
+                  style={{ padding: '10px 24px', fontSize: '17px' }}
+                >
+                  Serviços
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'profissionais'}
+                  onClick={() => setTab('profissionais')}
+                  className={[
+                    'inline-flex items-center justify-center',
+                    'rounded-full transition-all duration-150',
+                    'font-bold tracking-tight',
+                    tab === 'profissionais'
+                      ? 'bg-[#e9e3ff] text-[#6d5bd9] shadow-[0_1px_3px_rgba(109,91,217,0.15)]'
+                      : 'bg-[#ece8f5] text-[#5b5669] hover:bg-[#e4def0]',
+                  ].join(' ')}
+                  style={{ padding: '10px 24px', fontSize: '17px' }}
+                >
+                  Profissionais
+                </button>
               </div>
 
-              {servicosFiltrados.length === 0 ? (
-                <div className="bg-secondary border border-border rounded-2xl p-8 text-center flex flex-col items-center gap-2">
-                  <Scissors size={24} className="text-text-secondary" />
-                  <p className="text-sm text-text-secondary">
-                    {buscaServico ? 'Nenhum serviço correspondente à busca.' : 'Nenhum serviço cadastrado nesta barbearia.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {servicosFiltrados.map((servico) => {
-                    const selecionado = serviceId === servico.id
-                    const fotoServico = servico.imageUrl || servico.avatarUrl
-                    return (
-                      <button
-                        key={servico.id}
-                        type="button"
-                        onClick={() => setServiceId(servico.id)}
-                        className="text-left h-full cursor-pointer focus:outline-none"
-                      >
-                        <div
-                          className={`flex flex-col justify-between h-full rounded-2xl border-2 overflow-hidden transition-all duration-200 ${
-                            selecionado
-                              ? 'border-selected bg-selected/5 shadow-sm ring-2 ring-selected/20'
-                              : 'border-border bg-secondary hover:border-selected/40 hover:bg-white'
-                          }`}
-                        >
-                          {/* Foto do serviço */}
-                          <div className="relative w-full aspect-[5/3] bg-gradient-to-br from-accent/15 via-selected/10 to-secondary overflow-hidden border-b border-border/70">
-                            {fotoServico ? (
-                              <img
-                                src={fotoServico}
-                                alt={servico.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                                }}
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Scissors size={34} strokeWidth={1.75} className="text-accent/50" />
-                              </div>
-                            )}
-                            <div className="absolute top-3 right-3">
-                              <span
-                                className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors shadow-sm backdrop-blur-sm ${
-                                  selecionado
-                                    ? 'bg-selected text-white'
-                                    : 'bg-white/90 text-text-secondary border border-border/70'
-                                }`}
-                              >
-                                {selecionado && <Check size={12} strokeWidth={2.5} />}
-                                {selecionado ? 'Selecionado' : 'Selecionar'}
-                              </span>
-                            </div>
-                          </div>
+              {/* Profissionais disponíveis */}
+              <section className="flex flex-col gap-3.5 -mx-5 px-5">
+                <h3
+                  className="font-bold tracking-tight text-[#1a1722]"
+                  style={{ fontSize: '1.3rem' }}
+                >
+                  Profissionais disponíveis
+                </h3>
 
-                          <div className="flex flex-col gap-3 p-5">
-                            <div className="flex-1">
-                              <h3 className="font-bold text-text-primary text-base leading-snug line-clamp-1">
-                                {servico.name}
-                              </h3>
-                              {servico.description && (
-                                <p className="text-text-secondary text-xs mt-1.5 line-clamp-2 leading-relaxed">
-                                  {servico.description}
-                                </p>
-                              )}
-                            </div>
+                {profissionaisSelecionaveis.length === 0 ? (
+                  <div
+                    className="bg-white border border-[#ebe7f5] p-5 flex flex-col items-center text-center gap-2.5"
+                    style={{ borderRadius: '18px' }}
+                  >
+                    <UserIcon size={24} strokeWidth={1.8} className="text-[#8c8699]" />
+                    <p className="font-bold text-[#4a4657] text-[15px]">
+                      Nenhum profissional cadastrado
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="flex gap-7 overflow-x-auto pb-4 -mx-5 px-5"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
+                    {profissionaisSelecionaveis.map((p) => (
+                      <ProfessionalAvatarCard
+                        key={p.id}
+                        profissional={p}
+                        selecionado={p.id === profissionalSelecionadoId}
+                        onClick={() => setProfissionalSelecionadoId(p.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
 
-                            <div className="flex items-center justify-between pt-3 border-t border-border/70 text-xs">
-                              <span className="flex items-center gap-1 text-text-secondary font-medium">
-                                <Clock size={14} className="text-text-secondary" />
-                                {servico.durationMinutes} min
-                              </span>
-                              <span className="font-extrabold text-base text-accent">
-                                {formatPrice(servico.price)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+              {/* Serviços em Destaque */}
+              <section className="flex flex-col gap-3.5 pb-2 mb-2">
+                <h3
+                  className="font-bold tracking-tight text-[#1a1722]"
+                  style={{ fontSize: '1.3rem' }}
+                >
+                  Serviços em Destaque
+                </h3>
+
+                {tab === 'profissionais' && servicos.length === 0 ? (
+                  <div
+                    className="bg-white border border-[#ebe7f5] p-5 flex flex-col items-center text-center gap-2.5"
+                    style={{ borderRadius: '18px' }}
+                  >
+                    <Scissors size={24} strokeWidth={1.8} className="text-[#8c8699]" />
+                    <p className="font-bold text-[#4a4657] text-[15px]">
+                      Nenhum serviço cadastrado
+                    </p>
+                  </div>
+                ) : servicos.length === 0 ? (
+                  <div
+                    className="bg-white border border-[#ebe7f5] p-5 flex flex-col items-center text-center gap-2.5"
+                    style={{ borderRadius: '18px' }}
+                  >
+                    <Scissors size={24} strokeWidth={1.8} className="text-[#8c8699]" />
+                    <p className="font-bold text-[#4a4657] text-[15px]">
+                      Nenhum serviço cadastrado
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3.5">
+                    {servicos.map((s) => (
+                      <ServiceCard
+                        key={s.id}
+                        servico={s}
+                        onAgendar={() => handleAgendar(s)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
             </section>
           </>
         )}
       </main>
 
-      {/* BARRA FIXA DE RESUMO INFERIOR (STICKY BOTTOM DOCK) */}
-      {barbearia && temSelecao && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-dark/95 backdrop-blur-md border-t border-white/10 px-4 sm:px-6 py-4 shadow-2xl">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            {/* Informações da Seleção */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs sm:text-sm text-white w-full sm:w-auto">
-              <div className="flex items-center gap-2">
-                <span className="text-white/60">Profissional:</span>
-                {profissionalSelecionado ? (
-                  <span className="font-semibold text-white bg-white/10 px-2.5 py-1 rounded-lg">
-                    {profissionalSelecionado.name}
-                  </span>
-                ) : (
-                  <span className="text-amber-400 font-medium italic">Selecione um profissional</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-white/60">Serviço:</span>
-                {servicoSelecionado ? (
-                  <span className="font-semibold text-white bg-white/10 px-2.5 py-1 rounded-lg">
-                    {servicoSelecionado.name}{' '}
-                    <strong className="text-accent ml-1">{formatPrice(servicoSelecionado.price)}</strong>
-                  </span>
-                ) : (
-                  <span className="text-amber-400 font-medium italic">Selecione um serviço</span>
-                )}
-              </div>
-            </div>
-
-            {/* Botão de Prosseguir */}
-            <div className="w-full sm:w-auto flex items-center justify-end">
-              <Button
-                disabled={!selecaoCompleta}
-                onClick={handleContinuar}
-                size="md"
-                className="w-full sm:w-auto justify-center shadow-lg gap-2 font-bold"
-              >
-                <CalendarCheck size={18} />
-                Continuar para agendamento
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BottomNav />
     </div>
   )
 }

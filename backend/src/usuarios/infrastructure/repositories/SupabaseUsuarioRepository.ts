@@ -56,18 +56,6 @@ export class SupabaseUsuarioRepository implements IUsuarioRepository {
     return data ? mapRowParaUsuario(data) : null
   }
 
-  async buscarPorIds(ids: string[]): Promise<Usuario[]> {
-    if (ids.length === 0) return []
-
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .in('id', [...new Set(ids)])
-
-    if (error) throw new Error(`Erro ao buscar usuários por ids: ${error.message}`)
-    return (data ?? []).map(mapRowParaUsuario)
-  }
-
   async atualizar(id: string, dados: Partial<Pick<Usuario, 'name' | 'phone' | 'passwordHash' | 'role'>>): Promise<Usuario> {
     const payload: Record<string, any> = { updated_at: new Date().toISOString() }
     if (dados.name !== undefined) payload.name = dados.name

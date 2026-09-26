@@ -1,395 +1,607 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  User,
-  ShieldCheck,
-  Settings,
-  Crown,
-  Scissors,
-  UserCheck,
-  Mail,
-  Phone,
-  Calendar,
-  Copy,
-  Check,
-  AlertTriangle,
-  Trash2,
-  Lock,
-  BadgeCheck,
-  CheckCircle2,
+  User as UserIcon,
+  Eye,
+  EyeOff,
+  LogOut,
+  CalendarClock,
+  Ban,
+  ChevronRight,
+  Store,
 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useAuth } from '../features/auth/model/useAuth'
-import { UpdateProfileForm } from '../features/auth/ui/UpdateProfileForm'
-import { ChangePasswordForm } from '../features/auth/ui/ChangePasswordForm'
-import { Card } from '../shared/ui/Card'
-import { Button } from '../shared/ui/Button'
-import { Avatar } from '../shared/ui/Avatar'
+import { LoadingSpinner } from '../shared/ui/LoadingSpinner'
 import { ErrorMessage } from '../shared/ui/ErrorMessage'
+import { SuccessMessage } from '../shared/ui/SuccessMessage'
 import { ApiError } from '../shared/lib/api'
-import type { Role } from '../entities/usuario/types'
+import { BottomNav } from '../shared/ui/BottomNav'
 
-type ActiveTab = 'dados' | 'seguranca' | 'conta'
+const MESES_NOME = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+] as const
 
-const ROLE_INFO: Record<Role, { label: string; icon: typeof User; color: string }> = {
-  owner: {
-    label: 'Proprietário',
-    icon: Crown,
-    color: 'bg-amber-500/10 text-amber-700 border-amber-500/30',
+const perfilSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(150),
+  phone: z.string().min(10, 'Telefone inválido (mínimo 10 dígitos)').max(20),
+  newPassword: z
+    .string()
+    .max(80)
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => (v === '' ? undefined : v)),
+  currentPassword: z.string().max(80).optional().or(z.literal('')),
+})
+.refine(
+  (dados) => {
+    const temSenhaAtual = !!dados.currentPassword && dados.currentPassword.length > 0
+    const temNovaSenha = !!dados.newPassword && dados.newPassword.length > 0
+    if (!temSenhaAtual && !temNovaSenha) return true
+    if (temSenhaAtual && temNovaSenha) return (dados.newPassword?.length ?? 0) >= 8
+    return false
   },
-  profissional: {
-    label: 'Profissional',
-    icon: Scissors,
-    color: 'bg-selected/10 text-selected border-selected/30',
+  {
+    message: 'Preencha senha atual e nova senha (mínimo 8 caracteres) para trocá-la.',
+    path: ['newPassword'],
   },
-  cliente: {
-    label: 'Cliente',
-    icon: UserCheck,
-    color: 'bg-zinc-100 text-zinc-700 border-zinc-200',
-  },
-}
+)
+
+type PerfilFormData = z.infer<typeof perfilSchema>
 
 export function ProfilePage() {
-  const { user, atualizarUsuario, excluirConta } = useAuth()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dados')
-  const [excluindo, setExcluindo] = useState(false)
-  const [excluirErro, setExcluirErro] = useState<string | null>(null)
-  const [modalExcluirAberto, setModalExcluirAberto] = useState(false)
-  const [copiadoId, setCopiadoId] = useState(false)
+  const { user, loading: loadingAuth, atualizarUsuario, logout } = useAuth()
 
-  if (!user) return null
+  const [mostrarSenhaAtual, setMostrarSenhaAtual] = useState(false)
+  const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [sucesso, setSucesso] = useState<string | null>(null)
+  const [saindo, setSaindo] = useState(false)
 
-  function copiarId() {
-    if (!user) return
-    navigator.clipboard.writeText(user.id)
-    setCopiadoId(true)
-    setTimeout(() => setCopiadoId(false), 2000)
-  }
+  const defaultValues = useMemo<PerfilFormData>(
+    () => ({
+      name: user?.name ?? '',
+      phone: user?.phone ?? '',
+      currentPassword: '',
+      newPassword: '',
+    }),
+    [user?.name, user?.phone],
+  )
 
-  async function handleConfirmarExcluir() {
-    setExcluindo(true)
-    setExcluirErro(null)
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isSubmitting, isDirty },
+  } = useForm({
+    resolver: zodResolver(perfilSchema),
+    defaultValues,
+  })
+
+  useEffect(() => {
+    if (user) reset(defaultValues)
+  }, [user, reset, defaultValues])
+
+  const watchedName = watch('name')
+  const watchedPhone = watch('phone')
+
+  const dataMembro = useMemo(() => {
+    if (!user?.createdAt) return 'desde o início'
+    const d = new Date(user.createdAt)
+    const mes = MESES_NOME[d.getMonth()]
+    return `${mes} ${d.getFullYear()}`
+  }, [user?.createdAt])
+
+  async function onSubmit(dados: PerfilFormData) {
+    setErro(null)
+    setSucesso(null)
     try {
-      await excluirConta()
-      navigate('/')
+      const payload: {
+        name: string
+        phone: string
+        currentPassword?: string
+        newPassword?: string
+      } = {
+        name: dados.name.trim(),
+        phone: dados.phone,
+      }
+      if (dados.currentPassword && dados.newPassword) {
+        payload.currentPassword = dados.currentPassword
+        payload.newPassword = dados.newPassword
+      }
+      await atualizarUsuario(payload)
+      setSucesso(
+        dados.newPassword
+          ? 'Dados e senha atualizados com sucesso!'
+          : 'Dados pessoais atualizados com sucesso!',
+      )
+      reset({
+        name: payload.name,
+        phone: payload.phone,
+        currentPassword: '',
+        newPassword: '',
+      })
+      setMostrarSenhaAtual(false)
+      setMostrarNovaSenha(false)
+      setTimeout(() => setSucesso(null), 4500)
     } catch (err) {
-      setExcluirErro(err instanceof ApiError ? err.message : 'Não foi possível excluir sua conta. Tente novamente.')
-      setExcluindo(false)
-      setModalExcluirAberto(false)
+      setErro(
+        err instanceof ApiError
+          ? err.message
+          : 'Não foi possível salvar suas alterações. Tente novamente.',
+      )
     }
   }
 
-  const dataFormatada = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-    : 'data recente'
+  const podeSalvar = !isSubmitting && isDirty
 
-  const dataCompleta = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    : '—'
+  async function handleLogout() {
+    setSaindo(true)
+    setErro(null)
+    try {
+      await logout()
+      navigate('/login', { replace: true })
+    } catch (err) {
+      setSaindo(false)
+      setErro(
+        err instanceof ApiError ? err.message : 'Não foi possível sair. Tente novamente.',
+      )
+    }
+  }
+
+  if (loadingAuth && !user) {
+    return (
+      <div className="min-h-screen bg-[#fef7ff] pb-40 md:pb-8">
+        <div className="max-w-md mx-auto px-5 py-20 flex flex-col items-center gap-3">
+          <LoadingSpinner size="lg" tone="selected" />
+          <p className="text-sm text-[#6b6778]">Carregando seu perfil...</p>
+        </div>
+        <BottomNav />
+      </div>
+    )
+  }
+
+  if (!user) return null
 
   return (
-    <div className="min-h-screen bg-primary">
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-7 sm:py-12 flex flex-col gap-8">
-        {/* Banner e Hero Header do Perfil */}
-        <div className="bg-secondary border border-border rounded-2xl overflow-hidden shadow-sm shadow-black/[0.04]">
-          {/* Banner de topo com textura/gradiente escuro clássico de barbearia */}
-          <div className="h-28 sm:h-36 bg-gradient-to-r from-zinc-950 via-zinc-900 to-indigo-950 relative flex items-start justify-end p-4 sm:p-6">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(79,70,229,0.2),transparent_70%)] pointer-events-none" />
-            <span className="relative z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Conta Ativa
-            </span>
+    <div className="min-h-screen bg-[#fef7ff] pb-40 md:pb-8">
+      <main
+        className="max-w-md mx-auto px-5 pt-8 pb-4 flex flex-col gap-6"
+      >
+        <h1
+          className="font-extrabold tracking-tight text-[#1a1722]"
+          style={{ fontSize: '31px', letterSpacing: '-0.02em' }}
+        >
+          Meu perfil
+        </h1>
+
+        <section className="flex flex-col items-center gap-3 pt-2 pb-2">
+          <div
+            className="w-[118px] h-[118px] rounded-full p-[4px]"
+            style={{ background: 'linear-gradient(135deg, #6d5bd9 0%, #8b7fe9 100%)' }}
+          >
+            <div className="w-full h-full rounded-full bg-[#efe8ff] overflow-hidden flex items-center justify-center">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={`Foto de ${user.name}`}
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              ) : (
+                <UserIcon
+                  size={50}
+                  strokeWidth={1.7}
+                  className="text-[#6d5bd9]"
+                />
+              )}
+            </div>
           </div>
 
-          {/* Dados e Identidade do Usuário */}
-          <div className="px-6 pb-6 sm:px-8 sm:pb-8 flex flex-col gap-5">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6">
-              {/* Somente o avatar recebe margem negativa para sobrepor o banner sem arrastar o nome */}
-              <div className="-mt-14 sm:-mt-16 shrink-0 relative z-10">
-                <Avatar
-                  name={user.name}
-                  size="xl"
-                  className="ring-4 ring-white shadow-xl bg-gradient-to-br from-dark to-indigo-950"
+          <div className="flex flex-col items-center gap-1.5 pt-1">
+            <h2
+              className="font-extrabold tracking-tight text-[#1a1722] leading-tight"
+              style={{ fontSize: '26px', letterSpacing: '-0.015em' }}
+            >
+              {watchedName || user.name}
+            </h2>
+            <p
+              className="tracking-tight"
+              style={{ color: '#6b6478', fontSize: '16px' }}
+            >
+              Membro desde {dataMembro}
+            </p>
+          </div>
+        </section>
+
+        {(user.roles.includes('profissional') || user.roles.includes('owner')) && (
+          <section className="flex flex-col gap-3">
+            <h3
+              className="font-bold tracking-tight text-[#6d5bd9] px-1"
+              style={{ fontSize: '15px', letterSpacing: '0.02em' }}
+            >
+              FERRAMENTAS
+            </h3>
+
+            {user.roles.includes('profissional') && (
+              <>
+                <Link
+                  to="/professional/schedule"
+                  className="w-full bg-white rounded-[22px] p-5 shadow-[0_1px_2px_rgba(18,17,51,0.04),0_8px_24px_-8px_rgba(109,91,217,0.12)] border border-[#efe8ff] hover:border-[#d6cdf8] transition-all active:scale-[0.995]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-[18px] bg-[#efe8ff] text-[#6d5bd9] flex items-center justify-center shrink-0">
+                      <CalendarClock size={24} strokeWidth={2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[19px] font-bold text-[#2b2238] leading-tight">
+                        Minha Agenda
+                      </div>
+                      <div className="text-[15px] text-[#6b6478] mt-0.5 truncate">
+                        Veja e gerencie seus atendimentos do dia
+                      </div>
+                    </div>
+                    <ChevronRight size={22} strokeWidth={1.9} className="text-[#c8c1d6] shrink-0" />
+                  </div>
+                </Link>
+
+                <Link
+                  to="/professional/unavailability"
+                  className="w-full bg-white rounded-[22px] p-5 shadow-[0_1px_2px_rgba(18,17,51,0.04),0_8px_24px_-8px_rgba(109,91,217,0.12)] border border-[#efe8ff] hover:border-[#d6cdf8] transition-all active:scale-[0.995]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-[18px] bg-[#f4efff] text-[#6d5bd9] flex items-center justify-center shrink-0">
+                      <Ban size={24} strokeWidth={2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[19px] font-bold text-[#2b2238] leading-tight">
+                        Indisponibilidades
+                      </div>
+                      <div className="text-[15px] text-[#6b6478] mt-0.5 truncate">
+                        Bloqueie horários de almoço, folgas e afazeres
+                      </div>
+                    </div>
+                    <ChevronRight size={22} strokeWidth={1.9} className="text-[#c8c1d6] shrink-0" />
+                  </div>
+                </Link>
+              </>
+            )}
+
+            {user.roles.includes('owner') && (
+              <Link
+                to="/owner/barbershops"
+                className="w-full bg-white rounded-[22px] p-5 shadow-[0_1px_2px_rgba(18,17,51,0.04),0_8px_24px_-8px_rgba(109,91,217,0.12)] border border-[#efe8ff] hover:border-[#d6cdf8] transition-all active:scale-[0.995]"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-[18px] bg-[#fff3e0] text-[#c57e0a] flex items-center justify-center shrink-0">
+                    <Store size={24} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[19px] font-bold text-[#2b2238] leading-tight">
+                      Minhas Barbearias
+                    </div>
+                    <div className="text-[15px] text-[#6b6478] mt-0.5 truncate">
+                      Gerencie suas barbearias, equipes e serviços
+                    </div>
+                  </div>
+                  <ChevronRight size={22} strokeWidth={1.9} className="text-[#c8c1d6] shrink-0" />
+                </div>
+              </Link>
+            )}
+          </section>
+        )}
+
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-col gap-5"
+          noValidate
+        >
+          <section
+            className="bg-[#efe8ff] flex flex-col gap-4"
+            style={{ padding: '20px 22px 24px', borderRadius: '22px' }}
+          >
+            <h3
+              className="font-bold tracking-tight text-[#6d5bd9]"
+              style={{ fontSize: '17px', letterSpacing: '0.01em' }}
+            >
+              DADOS PESSOAIS
+            </h3>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="font-semibold tracking-tight"
+                  style={{ color: '#6d5bd9', fontSize: '15px' }}
+                >
+                  Nome completo
+                </label>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  className={[
+                    'w-full bg-transparent border rounded-[14px]',
+                    'font-bold tracking-tight text-[#1a1722]',
+                    'placeholder:text-[#b7b0ca]',
+                    'transition-all duration-150 outline-none',
+                    errors.name
+                      ? 'border-red-400/80 focus:border-red-500 focus:ring-4 focus:ring-red-500/15'
+                      : 'border-[#c2b8d6] hover:border-[#aea0c9] focus:border-[#6d5bd9] focus:ring-4 focus:ring-[#6d5bd9]/15 bg-white/40',
+                  ].join(' ')}
+                  style={{
+                    padding: '13px 18px',
+                    fontSize: '19px',
+                  }}
+                  placeholder="Nome completo"
+                  aria-invalid={!!errors.name}
+                  {...register('name')}
+                />
+                {errors.name && (
+                  <p className="text-[13px] font-semibold text-red-600 pl-1">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="font-semibold tracking-tight"
+                  style={{ color: '#6d5bd9', fontSize: '15px' }}
+                >
+                  Telefone celular
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  className={[
+                    'w-full bg-transparent border rounded-[14px]',
+                    'font-bold tracking-tight text-[#1a1722]',
+                    'placeholder:text-[#b7b0ca]',
+                    'transition-all duration-150 outline-none',
+                    errors.phone
+                      ? 'border-red-400/80 focus:border-red-500 focus:ring-4 focus:ring-red-500/15'
+                      : 'border-[#c2b8d6] hover:border-[#aea0c9] focus:border-[#6d5bd9] focus:ring-4 focus:ring-[#6d5bd9]/15 bg-white/40',
+                  ].join(' ')}
+                  style={{
+                    padding: '13px 18px',
+                    fontSize: '19px',
+                  }}
+                  placeholder="(11) 98765-4321"
+                  value={watchedPhone}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/\D/g, '').slice(0, 11)
+                    if (v.length >= 7) {
+                      v = `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`
+                    } else if (v.length >= 2) {
+                      v = `(${v.slice(0, 2)}) ${v.slice(2)}`
+                    }
+                    e.target.value = v
+                    register('phone').onChange(e)
+                  }}
+                  onBlur={register('phone').onBlur}
+                  name="phone"
+                  ref={register('phone').ref}
+                  aria-invalid={!!errors.phone}
+                />
+                {errors.phone && (
+                  <p className="text-[13px] font-semibold text-red-600 pl-1">
+                    {errors.phone.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="font-semibold tracking-tight"
+                  style={{ color: '#6d5bd9', fontSize: '15px' }}
+                >
+                  E-mail (somente leitura)
+                </label>
+                <input
+                  type="email"
+                  readOnly
+                  disabled
+                  className={[
+                    'w-full border rounded-[14px]',
+                    'font-bold tracking-tight text-[#1a1722]',
+                    'bg-white/40 opacity-95 cursor-not-allowed',
+                    'transition-all duration-150 outline-none',
+                    'border-[#c2b8d6]',
+                  ].join(' ')}
+                  style={{
+                    padding: '13px 18px',
+                    fontSize: '19px',
+                  }}
+                  value={user.email}
                 />
               </div>
-
-              {/* Nome e badges ficam perfeitamente posicionados na área de conteúdo claro */}
-              <div className="flex-1 min-w-0 pt-1 sm:pt-0 sm:pb-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight truncate">
-                  {user.name}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {user.roles.map((role) => {
-                    const info = ROLE_INFO[role] || {
-                      label: role,
-                      icon: User,
-                      color: 'bg-zinc-100 text-zinc-700 border-zinc-200',
-                    }
-                    const RoleIcon = info.icon
-                    return (
-                      <span
-                        key={role}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border shadow-xs ${info.color}`}
-                      >
-                        <RoleIcon size={14} strokeWidth={2} />
-                        {info.label}
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
             </div>
+          </section>
 
-            {/* Metadados rápidos */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-border/80">
-              <div className="flex items-center gap-2 text-sm text-text-secondary bg-white p-3 rounded-xl border border-border">
-                <Mail size={16} className="text-text-secondary shrink-0" />
-                <span className="truncate" title={user.email}>{user.email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary bg-white p-3 rounded-xl border border-border">
-                <Phone size={16} className="text-text-secondary shrink-0" />
-                <span>{user.phone || 'Sem telefone'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-text-secondary bg-white p-3 rounded-xl border border-border">
-                <Calendar size={16} className="text-text-secondary shrink-0" />
-                <span className="capitalize">Desde {dataFormatada}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Abas de Navegação */}
-        <div className="flex items-center gap-2 border-b border-border overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('dados')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'dados'
-                ? 'border-selected text-selected font-semibold'
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
-            }`}
+          <section
+            className="bg-[#efe8ff] flex flex-col gap-4"
+            style={{ padding: '20px 22px 24px', borderRadius: '22px' }}
           >
-            <User size={18} />
-            Informações Pessoais
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('seguranca')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'seguranca'
-                ? 'border-selected text-selected font-semibold'
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
-            }`}
-          >
-            <ShieldCheck size={18} />
-            Segurança & Senha
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('conta')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'conta'
-                ? 'border-selected text-selected font-semibold'
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
-            }`}
-          >
-            <Settings size={18} />
-            Conta & Preferências
-          </button>
-        </div>
+            <h3
+              className="font-bold tracking-tight text-[#6d5bd9]"
+              style={{ fontSize: '17px', letterSpacing: '0.01em' }}
+            >
+              TROCAR SENHA
+            </h3>
 
-        {/* Conteúdo da Aba 1: Dados Pessoais */}
-        {activeTab === 'dados' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
-              <Card className="flex flex-col gap-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-selected/10 text-selected flex items-center justify-center shrink-0">
-                    <User size={20} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-text-primary">Editar Informações</h2>
-                    <p className="text-sm text-text-secondary">
-                      Atualize seus dados para manter seus agendamentos e contatos sincronizados.
-                    </p>
-                  </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="font-semibold tracking-tight"
+                  style={{ color: '#6d5bd9', fontSize: '15px' }}
+                >
+                  Senha atual
+                </label>
+                <div className="relative">
+                  <input
+                    type={mostrarSenhaAtual ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    className={[
+                      'w-full bg-transparent border rounded-[14px]',
+                      'font-bold tracking-tight text-[#1a1722]',
+                      'placeholder:text-[#b7b0ca]',
+                      'transition-all duration-150 outline-none',
+                      errors.currentPassword
+                        ? 'border-red-400/80 focus:border-red-500 focus:ring-4 focus:ring-red-500/15 pr-14'
+                        : 'border-[#c2b8d6] hover:border-[#aea0c9] focus:border-[#6d5bd9] focus:ring-4 focus:ring-[#6d5bd9]/15 bg-white/40 pr-14',
+                    ].join(' ')}
+                    style={{
+                      padding: '13px 18px',
+                      fontSize: '19px',
+                    }}
+                    placeholder="Senha atual"
+                    {...register('currentPassword')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSenhaAtual((v) => !v)}
+                    aria-label={mostrarSenhaAtual ? 'Ocultar senha atual' : 'Mostrar senha atual'}
+                    tabIndex={-1}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6b6478] hover:text-[#6d5bd9] transition-colors p-1.5 -m-1.5 rounded-md"
+                  >
+                    {mostrarSenhaAtual ? (
+                      <EyeOff size={22} strokeWidth={1.9} />
+                    ) : (
+                      <Eye size={22} strokeWidth={1.9} />
+                    )}
+                  </button>
                 </div>
-
-                <UpdateProfileForm user={user} onUpdate={atualizarUsuario} />
-              </Card>
-            </div>
-
-            <div className="flex flex-col gap-6">
-              <Card className="flex flex-col gap-4">
-                <div className="flex items-center gap-2.5 text-text-primary font-semibold text-sm">
-                  <BadgeCheck size={18} className="text-selected shrink-0" />
-                  Privacidade dos Dados
-                </div>
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  Seu nome e telefone são compartilhados exclusivamente com as barbearias e profissionais onde você realiza agendamentos.
-                </p>
-                <div className="pt-3 border-t border-border flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-xs text-text-secondary">
-                    <CheckCircle2 size={14} className="text-success shrink-0" />
-                    Confirmações e lembretes de corte
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-text-secondary">
-                    <CheckCircle2 size={14} className="text-success shrink-0" />
-                    Contato direto pelo WhatsApp
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Conteúdo da Aba 2: Segurança */}
-        {activeTab === 'seguranca' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
-              <Card className="flex flex-col gap-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-selected/10 text-selected flex items-center justify-center shrink-0">
-                    <Lock size={20} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-text-primary">Trocar Senha</h2>
-                    <p className="text-sm text-text-secondary">
-                      Para sua segurança, escolha uma senha forte com letras e números.
-                    </p>
-                  </div>
-                </div>
-
-                <ChangePasswordForm onUpdate={atualizarUsuario} />
-              </Card>
-            </div>
-
-            <div className="flex flex-col gap-6">
-              <Card className="flex flex-col gap-4">
-                <div className="flex items-center gap-2.5 text-text-primary font-semibold text-sm">
-                  <ShieldCheck size={18} className="text-selected shrink-0" />
-                  Dicas de Segurança
-                </div>
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  Proteja sempre suas credenciais para evitar acessos indevidos aos seus agendamentos e barbearias.
-                </p>
-                <ul className="text-xs text-text-secondary flex flex-col gap-2 list-disc list-inside">
-                  <li>Use pelo menos 8 caracteres</li>
-                  <li>Evite datas de nascimento ou senhas óbvias</li>
-                  <li>Nunca compartilhe seus dados de acesso</li>
-                </ul>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Conteúdo da Aba 3: Conta & Preferências */}
-        {activeTab === 'conta' && (
-          <div className="flex flex-col gap-8">
-            {/* Informações detalhadas do sistema */}
-            <Card className="flex flex-col gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-selected/10 text-selected flex items-center justify-center shrink-0">
-                  <Settings size={20} strokeWidth={2} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-text-primary">Detalhes da Conta</h2>
-                  <p className="text-sm text-text-secondary">
-                    Identificadores e informações técnicas do seu registro.
+                {errors.currentPassword && (
+                  <p className="text-[13px] font-semibold text-red-600 pl-1">
+                    {errors.currentPassword.message}
                   </p>
-                </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-xl border border-border flex flex-col gap-1">
-                  <span className="text-xs text-text-secondary font-medium">Identificador Único (ID)</span>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono text-text-primary truncate">{user.id}</span>
-                    <button
-                      type="button"
-                      onClick={copiarId}
-                      className="p-1.5 hover:bg-secondary rounded-lg text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-                      title="Copiar ID"
-                    >
-                      {copiadoId ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                    </button>
-                  </div>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="font-semibold tracking-tight"
+                  style={{ color: '#6d5bd9', fontSize: '15px' }}
+                >
+                  Nova senha
+                </label>
+                <div className="relative">
+                  <input
+                    type={mostrarNovaSenha ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    className={[
+                      'w-full bg-transparent border rounded-[14px]',
+                      'font-bold tracking-tight text-[#1a1722]',
+                      'placeholder:text-[#b7b0ca]',
+                      'transition-all duration-150 outline-none',
+                      errors.newPassword
+                        ? 'border-red-400/80 focus:border-red-500 focus:ring-4 focus:ring-red-500/15 pr-14'
+                        : 'border-[#c2b8d6] hover:border-[#aea0c9] focus:border-[#6d5bd9] focus:ring-4 focus:ring-[#6d5bd9]/15 bg-white/40 pr-14',
+                    ].join(' ')}
+                    style={{
+                      padding: '13px 18px',
+                      fontSize: '19px',
+                    }}
+                    placeholder="Digite a nova senha"
+                    {...register('newPassword')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarNovaSenha((v) => !v)}
+                    aria-label={mostrarNovaSenha ? 'Ocultar nova senha' : 'Mostrar nova senha'}
+                    tabIndex={-1}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6b6478] hover:text-[#6d5bd9] transition-colors p-1.5 -m-1.5 rounded-md"
+                  >
+                    {mostrarNovaSenha ? (
+                      <EyeOff size={22} strokeWidth={1.9} />
+                    ) : (
+                      <Eye size={22} strokeWidth={1.9} />
+                    )}
+                  </button>
                 </div>
-
-                <div className="bg-white p-4 rounded-xl border border-border flex flex-col gap-1">
-                  <span className="text-xs text-text-secondary font-medium">Data de Cadastro</span>
-                  <span className="text-sm font-medium text-text-primary">{dataCompleta}</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Zona de Perigo */}
-            <div className="border border-red-200 bg-red-50/30 rounded-2xl p-6 sm:p-8 flex flex-col gap-5">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle size={24} strokeWidth={2} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-base font-bold text-red-900">Zona de Perigo — Exclusão de Conta</h3>
-                  <p className="text-sm text-red-700/90 leading-relaxed">
-                    Ao excluir sua conta, todos os seus dados pessoais, histórico e vínculos de agendamentos serão permanentemente removidos. Esta ação não poderá ser desfeita.
+                {errors.newPassword && (
+                  <p className="text-[13px] font-semibold text-red-600 pl-1">
+                    {errors.newPassword.message}
                   </p>
-                </div>
-              </div>
-
-              {excluirErro && <ErrorMessage>{excluirErro}</ErrorMessage>}
-
-              <div className="pt-3 border-t border-red-200 flex justify-end">
-                <Button
-                  variant="danger"
-                  onClick={() => setModalExcluirAberto(true)}
-                  className="w-full sm:w-auto px-6 py-2.5 justify-center"
-                >
-                  <Trash2 size={18} />
-                  Excluir minha conta
-                </Button>
+                )}
               </div>
             </div>
+          </section>
+
+          {erro && <ErrorMessage>{erro}</ErrorMessage>}
+          {sucesso && <SuccessMessage>{sucesso}</SuccessMessage>}
+
+          <div className="pt-1">
+            <button
+              type="submit"
+              disabled={!podeSalvar}
+              className={[
+                'w-full inline-flex items-center justify-center gap-2',
+                'text-white font-extrabold tracking-tight transition-all duration-150',
+                'shadow-[0_8px_20px_-6px_rgba(109,91,217,0.55)]',
+                podeSalvar
+                  ? 'bg-[#6d5bd9] hover:bg-[#5d4bc9] active:scale-[0.992]'
+                  : 'bg-[#b9b0d4] cursor-not-allowed shadow-none',
+              ].join(' ')}
+              style={{
+                padding: '16px 20px',
+                borderRadius: '999px',
+                fontSize: '19px',
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size="sm" tone="white" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar alterações'
+              )}
+            </button>
           </div>
-        )}
+        </form>
 
-        {/* Modal Elegante de Confirmação de Exclusão */}
-        {modalExcluirAberto && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl flex flex-col gap-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle size={20} strokeWidth={2} />
-                </div>
-                <h3 className="text-lg font-bold text-text-primary">Confirmar Exclusão</h3>
-              </div>
-
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Você tem certeza absoluta de que deseja excluir sua conta? Esta ação é definitiva e apagará todos os seus registros no Barber Agenda.
-              </p>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  disabled={excluindo}
-                  onClick={() => setModalExcluirAberto(false)}
-                  className="px-4 py-2 border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  variant="danger"
-                  loading={excluindo}
-                  onClick={handleConfirmarExcluir}
-                  className="px-5 py-2"
-                >
-                  Confirmar e Excluir
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <div className="pt-2 flex">
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={saindo}
+            className={[
+              'w-full inline-flex items-center justify-center gap-2',
+              'font-bold tracking-tight transition-all duration-150',
+              'rounded-[999px] border-2',
+              saindo
+                ? 'opacity-70 cursor-wait'
+                : 'text-[#c94e4e] border-[#d95e5e] bg-white hover:bg-[#fff2f2] active:scale-[0.992]',
+            ].join(' ')}
+            style={{
+              padding: '14px 20px',
+              fontSize: '17px',
+            }}
+          >
+            {saindo ? (
+              <>
+                <LoadingSpinner size="sm" tone="ink" />
+                Saindo...
+              </>
+            ) : (
+              <>
+                <LogOut size={20} strokeWidth={2} />
+                Sair da conta
+              </>
+            )}
+          </button>
+        </div>
       </main>
+
+      <BottomNav />
     </div>
   )
 }

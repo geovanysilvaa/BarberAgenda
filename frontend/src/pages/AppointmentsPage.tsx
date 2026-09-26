@@ -1,414 +1,377 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CalendarDays,
-  CalendarClock,
   Scissors,
-  Clock,
-  AlertTriangle,
   CalendarX2,
-  FilterX,
-  Plus,
-  Trash2,
-  User,
-  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react'
 import { useAgendamento } from '../features/agendamento/model/useAgendamento'
-import { useFiltroAgendamentos } from '../features/agendamento/model/useFiltroAgendamentos'
-import {
-  FiltroAgendamentos,
-  filtrosPadrao,
-  type FiltroAgendamentosValues,
-} from '../features/agendamento/ui/FiltroAgendamentos'
-import { Card } from '../shared/ui/Card'
-import { Button } from '../shared/ui/Button'
-import { Input } from '../shared/ui/Input'
+import { useBarbeiro } from '../features/barbershop/model/useBarbeiro'
 import { LoadingSpinner } from '../shared/ui/LoadingSpinner'
 import { ErrorMessage } from '../shared/ui/ErrorMessage'
 import { StatusBadge } from '../shared/ui/StatusBadge'
 import { ApiError } from '../shared/lib/api'
+import { BottomNav } from '../shared/ui/BottomNav'
 import type { Appointment } from '../entities/appointment/types'
 
-function formatarDataPtBr(dataStr: string): string {
+const MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'] as const
+
+function formatoDataAmigavel(iso: string, hora: string): string {
   try {
-    const [ano, mes, dia] = dataStr.split('-').map(Number)
-    if (!ano || !mes || !dia) return dataStr
-    const data = new Date(ano, mes - 1, dia)
-    return data.toLocaleDateString('pt-BR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+    const [ano, mes, dia] = iso.split('-').map(Number)
+    if (!ano || !mes || !dia) return `${iso} às ${hora}`
+
+    const dataRef = new Date(ano, mes - 1, dia)
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    const amanha = new Date(hoje)
+    amanha.setDate(amanha.getDate() + 1)
+
+    const data = dataRef.getTime()
+    const hojeT = hoje.getTime()
+    const amanhaT = amanha.getTime()
+
+    const horaCurta = hora.slice(0, 5)
+    const diaMes = `${dia} ${MESES_ABREV[mes - 1]}`
+
+    if (data === hojeT) return `Hoje, ${diaMes} às ${horaCurta}`
+    if (data === amanhaT) return `Amanhã, ${diaMes} às ${horaCurta}`
+    return `${diaMes} às ${horaCurta}`
   } catch {
-    return dataStr
+    return `${iso} às ${hora}`
   }
 }
 
-export function AppointmentsPage() {
-  const { agendamentos, loading, error, listarMeusAgendamentos, cancelarAgendamento, reagendarAgendamento } =
-    useAgendamento()
-  const [reagendandoId, setReagendandoId] = useState<string | null>(null)
-  const [novaData, setNovaData] = useState('')
-  const [novoHorario, setNovoHorario] = useState('')
-  const [acaoErro, setAcaoErro] = useState<string | null>(null)
-  const [filtros, setFiltros] = useState<FiltroAgendamentosValues>(filtrosPadrao)
-  const [salvandoReagendamento, setSalvandoReagendamento] = useState(false)
-  const [agendamentoParaCancelar, setAgendamentoParaCancelar] = useState<Appointment | null>(null)
-  const [cancelando, setCancelando] = useState(false)
+type TabId = 'proximos' | 'historico'
 
-  const { agendamentosFiltrados, profissionais } = useFiltroAgendamentos(agendamentos, filtros)
+function classificarStatusVisual(ag: Appointment, hojeISO: string): 'confirmado' | 'pendente' {
+  if (ag.status !== 'agendado') return ag.status === 'concluido' ? 'confirmado' : 'pendente'
+  const [a, m, d] = ag.date.split('-').map(Number)
+  const [ha, hm, hd] = hojeISO.split('-').map(Number)
+  const dataAg = new Date(a, (m ?? 1) - 1, d ?? 1).getTime()
+  const dataHoje = new Date(ha, (hm ?? 1) - 1, hd ?? 1).getTime()
+  const diffDias = Math.round((dataAg - dataHoje) / (1000 * 60 * 60 * 24))
+  return diffDias <= 2 ? 'confirmado' : 'pendente'
+}
+
+const labelStatusVisual: Record<'confirmado' | 'pendente', string> = {
+  confirmado: 'Confirmado',
+  pendente: 'Pendente',
+}
+
+export function AppointmentsPage() {
+  const navigate = useNavigate()
+  const { agendamentos, loading, error, listarMeusAgendamentos, cancelarAgendamento } =
+    useAgendamento()
+  const { barbearias, listarBarbearias } = useBarbeiro()
+  const [acaoErro, setAcaoErro] = useState<string | null>(null)
+  const [cancelando, setCancelando] = useState(false)
+  const [tab, setTab] = useState<TabId>('proximos')
+
+  const hojeISO = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
   useEffect(() => {
     listarMeusAgendamentos()
-  }, [listarMeusAgendamentos])
+    listarBarbearias()
+  }, [listarMeusAgendamentos, listarBarbearias])
 
-  async function handleConfirmarCancelar() {
-    if (!agendamentoParaCancelar) return
+  const mapaBarbearias = useMemo(() => {
+    const m = new Map<string, string>()
+    barbearias.forEach((b) => m.set(b.id, b.name))
+    return m
+  }, [barbearias])
 
+  function nomeBarbearia(ag: Appointment): string {
+    if (ag.barbershop?.name) return ag.barbershop.name
+    if (ag.barbershopId && mapaBarbearias.has(ag.barbershopId)) {
+      return mapaBarbearias.get(ag.barbershopId) as string
+    }
+    return 'Barbearia'
+  }
+
+  const agendamentosPorTab = useMemo(() => {
+    const hojeT = new Date(
+      Number(hojeISO.slice(0, 4)),
+      Number(hojeISO.slice(5, 7)) - 1,
+      Number(hojeISO.slice(8, 10)),
+    ).getTime()
+
+    return agendamentos
+      .slice()
+      .sort((a, b) => {
+        const ka = `${a.date} ${a.startTime}`
+        const kb = `${b.date} ${b.startTime}`
+        return ka.localeCompare(kb)
+      })
+      .filter((ag) => {
+        const [a, m, d] = ag.date.split('-').map(Number)
+        const t = new Date(a, (m ?? 1) - 1, d ?? 1).getTime()
+        const futuroOuHoje = t >= hojeT
+        const ativo = ag.status === 'agendado'
+        if (tab === 'proximos') return ativo && futuroOuHoje
+        return !(ativo && futuroOuHoje)
+      })
+  }, [agendamentos, tab, hojeISO])
+
+  async function handleCancelar(ag: Appointment) {
     setCancelando(true)
     setAcaoErro(null)
     try {
-      await cancelarAgendamento(agendamentoParaCancelar.id)
-      setAgendamentoParaCancelar(null)
+      await cancelarAgendamento(ag.id)
       await listarMeusAgendamentos()
     } catch (err) {
-      setAcaoErro(err instanceof ApiError ? err.message : 'Não foi possível cancelar o agendamento. Tente novamente.')
+      setAcaoErro(
+        err instanceof ApiError ? err.message : 'Não foi possível cancelar. Tente novamente.',
+      )
     } finally {
       setCancelando(false)
     }
   }
 
-  function iniciarReagendamento(agendamento: Appointment) {
-    setReagendandoId(agendamento.id)
-    setNovaData(agendamento.date)
-    setNovoHorario(agendamento.startTime)
-    setAcaoErro(null)
+  function handleReagendar(ag: Appointment) {
+    const params = new URLSearchParams()
+    if (ag.barbershopId) params.set('barbershopId', ag.barbershopId)
+    else if (ag.barbershop?.id) params.set('barbershopId', ag.barbershop.id)
+    params.set('professionalId', ag.professional.id)
+    params.set('serviceId', ag.service.id)
+    navigate(`/appointments/new?${params.toString()}`)
   }
-
-  async function handleReagendar(id: string) {
-    setSalvandoReagendamento(true)
-    setAcaoErro(null)
-    try {
-      await reagendarAgendamento(id, { date: novaData, time: novoHorario })
-      setReagendandoId(null)
-      await listarMeusAgendamentos()
-    } catch (err) {
-      setAcaoErro(err instanceof ApiError ? err.message : 'Não foi possível reagendar. Tente novamente.')
-    } finally {
-      setSalvandoReagendamento(false)
-    }
-  }
-
-  // Estatísticas rápidas
-  const totalAgendados = agendamentos.filter((a) => a.status === 'agendado').length
-  const totalConcluidos = agendamentos.filter((a) => a.status === 'concluido').length
-  const totalCancelados = agendamentos.filter((a) => a.status === 'cancelado').length
 
   return (
-    <div className="min-h-screen bg-primary">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8">
-        {/* Cabeçalho da Página */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-selected/10 text-selected flex items-center justify-center shrink-0">
-                <CalendarDays size={22} strokeWidth={2} />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
-                Meus Agendamentos
-              </h1>
-            </div>
-            <p className="text-sm text-text-secondary mt-1 ml-0 sm:ml-13">
-              Consulte seus horários marcados, reagende ou cancele quando precisar.
-            </p>
-          </div>
+    <div className="min-h-screen bg-[#fef7ff] pb-40 md:pb-8">
+      <main className="max-w-md mx-auto px-5 pt-8 pb-4 flex flex-col gap-6">
+        <h1
+          className="font-extrabold tracking-tight text-[#1a1722]"
+          style={{ fontSize: '31px', letterSpacing: '-0.02em' }}
+        >
+          Meus Agendamentos
+        </h1>
 
-          <Link to="/barbershops">
-            <Button size="md" className="shadow-sm">
-              <Plus size={18} />
-              Novo agendamento
-            </Button>
-          </Link>
+        <div
+          className="grid grid-cols-2 items-center"
+          style={{ padding: '5px', borderRadius: '999px', background: '#efe8ff' }}
+          role="tablist"
+          aria-label="Agendamentos"
+        >
+          <button
+            role="tab"
+            aria-selected={tab === 'proximos'}
+            type="button"
+            onClick={() => setTab('proximos')}
+            className={[
+              'inline-flex items-center justify-center font-bold tracking-tight transition-all duration-150',
+              tab === 'proximos'
+                ? 'bg-white text-[#6d5bd9] shadow-[0_1px_3px_rgba(109,91,217,0.15)]'
+                : 'text-[#837c92] hover:text-[#5b5669]',
+            ].join(' ')}
+            style={{
+              padding: '11px 14px',
+              borderRadius: '999px',
+              fontSize: '17px',
+            }}
+          >
+            Próximos
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'historico'}
+            type="button"
+            onClick={() => setTab('historico')}
+            className={[
+              'inline-flex items-center justify-center font-bold tracking-tight transition-all duration-150',
+              tab === 'historico'
+                ? 'bg-white text-[#6d5bd9] shadow-[0_1px_3px_rgba(109,91,217,0.15)]'
+                : 'text-[#837c92] hover:text-[#5b5669]',
+            ].join(' ')}
+            style={{
+              padding: '11px 14px',
+              borderRadius: '999px',
+              fontSize: '17px',
+            }}
+          >
+            Histórico
+          </button>
         </div>
 
-        {/* Barra de Estatísticas Rápidas */}
-        {!loading && agendamentos.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-secondary border border-border p-4 rounded-2xl flex flex-col gap-1 shadow-2xs">
-              <span className="text-xs text-text-secondary font-medium">Total de agendamentos</span>
-              <span className="text-2xl font-bold text-text-primary">{agendamentos.length}</span>
-            </div>
-
-            <div className="bg-secondary border border-border p-4 rounded-2xl flex flex-col gap-1 shadow-2xs">
-              <span className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Próximos horários
-              </span>
-              <span className="text-2xl font-bold text-emerald-700">{totalAgendados}</span>
-            </div>
-
-            <div className="bg-secondary border border-border p-4 rounded-2xl flex flex-col gap-1 shadow-2xs">
-              <span className="text-xs text-text-secondary font-medium">Concluídos</span>
-              <span className="text-2xl font-bold text-text-secondary">{totalConcluidos}</span>
-            </div>
-
-            <div className="bg-secondary border border-border p-4 rounded-2xl flex flex-col gap-1 shadow-2xs">
-              <span className="text-xs text-red-600 font-medium">Cancelados</span>
-              <span className="text-2xl font-bold text-red-600">{totalCancelados}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Mensagens de erro globais */}
         {error && <ErrorMessage>{error}</ErrorMessage>}
         {acaoErro && <ErrorMessage>{acaoErro}</ErrorMessage>}
 
-        {/* Filtros */}
-        {!loading && !error && agendamentos.length > 0 && (
-          <FiltroAgendamentos profissionais={profissionais} onChange={setFiltros} />
-        )}
-
-        {/* Loading Spinner */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <LoadingSpinner size="lg" />
-            <p className="text-sm text-text-secondary">Carregando seus agendamentos...</p>
+            <LoadingSpinner size="lg" tone="selected" />
+            <p className="text-sm text-[#6b6778]">Carregando seus agendamentos...</p>
           </div>
         )}
 
-        {/* Nenhum agendamento cadastrado (vazio geral) */}
-        {!loading && !error && agendamentos.length === 0 && (
-          <div className="bg-secondary border border-border rounded-2xl p-10 sm:p-16 flex flex-col items-center text-center gap-4 shadow-2xs">
-            <div className="w-16 h-16 rounded-2xl bg-selected/10 text-selected flex items-center justify-center">
-              <CalendarX2 size={32} strokeWidth={1.75} />
+        {!loading && agendamentosPorTab.length === 0 && (
+          <div
+            className="bg-white border border-[#ebe7f5] p-8 flex flex-col items-center text-center gap-4"
+            style={{ borderRadius: '22px' }}
+          >
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center"
+              style={{ background: '#f4efff' }}
+            >
+              <CalendarX2 size={30} strokeWidth={1.9} className="text-[#6d5bd9]/70" />
             </div>
-            <div className="max-w-md flex flex-col gap-1">
-              <h3 className="text-lg font-bold text-text-primary">Nenhum agendamento encontrado</h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Você ainda não marcou nenhum horário. Escolha uma barbearia para agendar seu corte de cabelo ou barba.
+            <div className="flex flex-col gap-1.5">
+              <h3 className="font-bold text-[#1a1722]" style={{ fontSize: '18px' }}>
+                Nenhum agendamento
+              </h3>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: '#6b6478', maxWidth: '280px' }}
+              >
+                {tab === 'proximos'
+                  ? 'Você não tem horários marcados para os próximos dias.'
+                  : 'Ainda não há agendamentos passados no histórico.'}
               </p>
             </div>
-            <Link to="/barbershops" className="pt-2">
-              <Button>
-                <Scissors size={18} />
-                Explorar Barbearias
-              </Button>
-            </Link>
+            {tab === 'proximos' && (
+              <button
+                type="button"
+                onClick={() => navigate('/barbershops')}
+                className="mt-2 inline-flex items-center justify-center gap-2 text-white font-bold transition-all duration-150 active:scale-[0.992] shadow-[0_6px_16px_-6px_rgba(109,91,217,0.5)]"
+                style={{
+                  padding: '12px 22px',
+                  borderRadius: '999px',
+                  backgroundColor: '#6d5bd9',
+                  fontSize: '15px',
+                }}
+              >
+                <Scissors size={17} />
+                Explorar barbearias
+              </button>
+            )}
           </div>
         )}
 
-        {/* Nenhum resultado com os filtros atuais */}
-        {!loading && !error && agendamentos.length > 0 && agendamentosFiltrados.length === 0 && (
-          <div className="bg-secondary border border-border rounded-2xl p-10 flex flex-col items-center text-center gap-3 shadow-2xs">
-            <div className="w-14 h-14 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center">
-              <FilterX size={26} strokeWidth={1.75} />
-            </div>
-            <h3 className="text-base font-bold text-text-primary">Nenhum resultado para esses filtros</h3>
-            <p className="text-sm text-text-secondary max-w-sm">
-              Tente alterar os termos da busca, profissional ou período selecionado.
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setFiltros(filtrosPadrao)}
-              className="mt-2"
-            >
-              Restaurar filtros padrão
-            </Button>
-          </div>
-        )}
-
-        {/* Lista de Agendamentos */}
-        {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {agendamentosFiltrados.map((agendamento) => {
-              const ehAgendado = agendamento.status === 'agendado'
-              const estaReagendando = reagendandoId === agendamento.id
+        {!loading && agendamentosPorTab.length > 0 && (
+          <div className="flex flex-col gap-5">
+            {agendamentosPorTab.map((ag) => {
+              const statusVisual = classificarStatusVisual(ag, hojeISO)
+              const ehAtivo = ag.status === 'agendado'
+              const exibirAcoes = tab === 'proximos'
 
               return (
-                <Card
-                  key={agendamento.id}
-                  className={`flex flex-col justify-between transition-all rounded-2xl p-6 ${
-                    ehAgendado
-                      ? 'border-selected/30 shadow-xs hover:border-selected/50'
-                      : 'opacity-90'
-                  }`}
+                <article
+                  key={ag.id}
+                  className="bg-white border border-[#ebe7f5] flex flex-col gap-3.5"
+                  style={{
+                    padding: '20px 22px 22px',
+                    borderRadius: '22px',
+                    boxShadow: '0 1px 3px rgba(26,23,34,0.04)',
+                  }}
                 >
-                  <div className="flex flex-col gap-4">
-                    {/* Linha superior: Serviço e Status */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                            ehAgendado
-                              ? 'bg-selected/10 text-selected'
-                              : 'bg-zinc-100 text-zinc-600'
-                          }`}
-                        >
-                          <Scissors size={20} strokeWidth={2} />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-base text-text-primary truncate">
-                            {agendamento.service.name}
-                          </h3>
-                          <span className="inline-flex items-center gap-1 text-xs text-text-secondary mt-0.5">
-                            <Clock size={12} />
-                            {agendamento.service.duration} min de duração
-                          </span>
-                        </div>
-                      </div>
-
-                      <StatusBadge status={agendamento.status} />
-                    </div>
-
-                    {/* Dados do profissional e data/horário */}
-                    <div className="bg-white rounded-xl p-3.5 border border-border flex flex-col gap-2.5 text-sm">
-                      <div className="flex items-center gap-2 text-text-primary">
-                        <User size={16} className="text-text-secondary shrink-0" />
-                        <span className="text-text-secondary text-xs">Profissional:</span>
-                        <span className="font-medium truncate">{agendamento.professional.name}</span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-text-primary pt-2 border-t border-border/60">
-                        <div className="flex items-center gap-1.5 text-xs text-text-secondary font-medium capitalize">
-                          <CalendarDays size={15} className="text-selected shrink-0" />
-                          <span>{formatarDataPtBr(agendamento.date)}</span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-xs text-text-secondary font-medium">
-                          <Clock size={15} className="text-selected shrink-0" />
-                          <span>
-                            {agendamento.startTime} às {agendamento.endTime}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Painel inline de reagendamento */}
-                    {ehAgendado && estaReagendando && (
-                      <div className="bg-selected/5 border border-selected/20 rounded-xl p-4 flex flex-col gap-3">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-selected">
-                          <CalendarClock size={16} />
-                          <span>Escolha uma nova data e horário</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <Input
-                            label="Nova data"
-                            type="date"
-                            value={novaData}
-                            onChange={(e) => setNovaData(e.target.value)}
-                          />
-                          <Input
-                            label="Novo horário"
-                            type="time"
-                            value={novoHorario}
-                            onChange={(e) => setNovoHorario(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={salvandoReagendamento}
-                            onClick={() => setReagendandoId(null)}
-                          >
-                            Voltar
-                          </Button>
-                          <Button
-                            size="sm"
-                            loading={salvandoReagendamento}
-                            onClick={() => handleReagendar(agendamento.id)}
-                          >
-                            <CheckCircle2 size={16} />
-                            Salvar novo horário
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex items-start justify-between gap-3">
+                    <h2
+                      className="font-extrabold tracking-tight text-[#1a1722] leading-tight truncate min-w-0"
+                      style={{ fontSize: '21px', letterSpacing: '-0.01em' }}
+                    >
+                      {nomeBarbearia(ag)}
+                    </h2>
+                    <StatusBadge
+                      tone={statusVisual}
+                      variant="solid"
+                      size="md"
+                      label={labelStatusVisual[statusVisual]}
+                      icon={undefined}
+                      className="shrink-0"
+                    />
                   </div>
 
-                  {/* Ações para agendamento ativo */}
-                  {ehAgendado && !estaReagendando && (
-                    <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-border">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => iniciarReagendamento(agendamento)}
-                        className="px-3.5 py-1.5 text-xs"
+                  <div className="flex flex-col gap-1.5">
+                    <p
+                      className="text-[15px] leading-snug"
+                      style={{ color: '#6b6478' }}
+                    >
+                      Serviço:{' '}
+                      <span className="text-[#2f2a3e] font-medium">{ag.service.name}</span>
+                    </p>
+                    <p
+                      className="text-[15px] leading-snug"
+                      style={{ color: '#6b6478' }}
+                    >
+                      Profissional:{' '}
+                      <span className="text-[#2f2a3e] font-medium">{ag.professional.name}</span>
+                    </p>
+                  </div>
+
+                  <div
+                    className="flex items-center gap-2 pt-0.5"
+                    style={{ color: '#6d5bd9' }}
+                  >
+                    <CalendarDays
+                      size={20}
+                      strokeWidth={2.2}
+                      className="shrink-0"
+                      style={{ transform: 'translateY(-1px)' }}
+                    />
+                    <span
+                      className="font-bold tracking-tight"
+                      style={{ fontSize: '17px' }}
+                    >
+                      {formatoDataAmigavel(ag.date, ag.startTime)}
+                    </span>
+                  </div>
+
+                  {exibirAcoes && ehAtivo && (
+                    <div
+                      className="grid grid-cols-2 gap-3.5 pt-3 mt-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleReagendar(ag)}
+                        disabled={cancelando}
+                        className={[
+                          'inline-flex items-center justify-center',
+                          'rounded-[999px] font-bold tracking-tight transition-all duration-150',
+                          'bg-white text-[#6d5bd9] border-2 border-[#6d5bd9]',
+                          'hover:bg-[#f4efff] active:scale-[0.98] disabled:opacity-60',
+                        ].join(' ')}
+                        style={{
+                          padding: '11px 14px',
+                          fontSize: '17px',
+                        }}
                       >
-                        <CalendarClock size={15} />
                         Reagendar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => setAgendamentoParaCancelar(agendamento)}
-                        className="px-3.5 py-1.5 text-xs"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCancelar(ag)}
+                        disabled={cancelando}
+                        className={[
+                          'inline-flex items-center justify-center',
+                          'rounded-[999px] font-bold tracking-tight transition-all duration-150',
+                          'bg-white text-[#c94e4e] border-2 border-[#d95e5e]',
+                          'hover:bg-[#fff2f2] active:scale-[0.98] disabled:opacity-60',
+                        ].join(' ')}
+                        style={{
+                          padding: '11px 14px',
+                          fontSize: '17px',
+                        }}
                       >
-                        <Trash2 size={15} />
-                        Cancelar
-                      </Button>
+                        {cancelando ? (
+                          <span className="inline-flex items-center gap-2">
+                            <RefreshCw size={16} className="animate-spin" />
+                            Cancelando
+                          </span>
+                        ) : (
+                          'Cancelar'
+                        )}
+                      </button>
                     </div>
                   )}
-                </Card>
+                </article>
               )
             })}
           </div>
         )}
-
-        {/* Modal Elegante de Cancelamento de Agendamento */}
-        {agendamentoParaCancelar && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl flex flex-col gap-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle size={20} strokeWidth={2} />
-                </div>
-                <h3 className="text-lg font-bold text-text-primary">Cancelar Agendamento</h3>
-              </div>
-
-              <div className="bg-secondary p-3.5 rounded-xl border border-border flex flex-col gap-1 text-sm">
-                <p className="font-semibold text-text-primary">
-                  {agendamentoParaCancelar.service.name}
-                </p>
-                <p className="text-text-secondary text-xs">
-                  Profissional: <span className="text-text-primary font-medium">{agendamentoParaCancelar.professional.name}</span>
-                </p>
-                <p className="text-text-secondary text-xs">
-                  Horário: <span className="text-text-primary font-medium">{formatarDataPtBr(agendamentoParaCancelar.date)} às {agendamentoParaCancelar.startTime}</span>
-                </p>
-              </div>
-
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Tem certeza que deseja cancelar este agendamento? O horário será imediatamente liberado para outros clientes.
-              </p>
-
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-                <Button
-                  variant="secondary"
-                  disabled={cancelando}
-                  onClick={() => setAgendamentoParaCancelar(null)}
-                  className="px-4 py-2 border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 text-sm"
-                >
-                  Manter agendamento
-                </Button>
-                <Button
-                  variant="danger"
-                  loading={cancelando}
-                  onClick={handleConfirmarCancelar}
-                  className="px-4 py-2 text-sm"
-                >
-                  Confirmar cancelamento
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
+
+      <BottomNav />
     </div>
   )
 }

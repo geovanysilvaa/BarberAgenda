@@ -10,6 +10,8 @@ export type BadgeTone =
   | 'amber'
   | 'indigo'
   | 'neutral'
+  | 'confirmado'
+  | 'pendente'
   | AppointmentStatus
 
 export interface StatusBadgeProps {
@@ -20,6 +22,7 @@ export interface StatusBadgeProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string
   withDot?: boolean
+  variant?: 'soft' | 'solid'
 }
 
 const toneStyles: Record<NonNullable<BadgeTone>, string> = {
@@ -37,12 +40,31 @@ const toneStyles: Record<NonNullable<BadgeTone>, string> = {
     'bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border-indigo-500/25 dark:border-indigo-500/35',
   neutral:
     'bg-ink-100 text-ink-600 dark:bg-ink-700/40 dark:text-ink-200 border-ink-200/60 dark:border-ink-600/50',
+  confirmado:
+    'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 border-emerald-500/25 dark:border-emerald-500/35',
+  pendente:
+    'bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border-indigo-500/25 dark:border-indigo-500/35',
   agendado:
     'bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border-indigo-500/25 dark:border-indigo-500/35',
   concluido:
     'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 border-emerald-500/25 dark:border-emerald-500/35',
   cancelado:
     'bg-red-500/10 text-red-700 dark:bg-red-500/15 dark:text-red-300 border-red-500/25 dark:border-red-500/35',
+}
+
+const toneStylesSolid: Record<NonNullable<BadgeTone>, string> = {
+  success: 'bg-emerald-600 text-white border-emerald-600',
+  warning: 'bg-amber-500 text-white border-amber-500',
+  danger: 'bg-red-600 text-white border-red-600',
+  info: 'bg-indigo-600 text-white border-indigo-600',
+  amber: 'bg-amber-500 text-white border-amber-500',
+  indigo: 'bg-indigo-600 text-white border-indigo-600',
+  neutral: 'bg-zinc-500 text-white border-zinc-500',
+  confirmado: 'bg-[#1f8e4e] text-white border-[#1f8e4e]',
+  pendente: 'bg-[#6d5bd9] text-white border-[#6d5bd9]',
+  agendado: 'bg-[#6d5bd9] text-white border-[#6d5bd9]',
+  concluido: 'bg-emerald-600 text-white border-emerald-600',
+  cancelado: 'bg-red-600 text-white border-red-600',
 }
 
 const statusIcon: Record<AppointmentStatus, ComponentType<any>> = {
@@ -80,19 +102,24 @@ export function StatusBadge({
   size = 'md',
   className = '',
   withDot,
+  variant = 'soft',
 }: StatusBadgeProps) {
   const finalTone: NonNullable<BadgeTone> = tone ?? status ?? 'neutral'
   const finalLabel = label ?? (status ? statusLabel[status] : undefined)
   const FinalIcon = Icon ?? (status ? statusIcon[status] : toneIconDefault[finalTone])
   const iconSize = size === 'sm' ? 11 : size === 'lg' ? 15 : 13
   const stroke = size === 'sm' ? 2.4 : 2.2
+  const toneStyle = variant === 'solid' ? toneStylesSolid[finalTone] : toneStyles[finalTone]
 
   return (
     <span
       className={[
-        'inline-flex items-center rounded-full border font-semibold shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_1px_2px_rgba(16,19,26,0.04)]',
+        'inline-flex items-center rounded-full border font-semibold',
+        variant === 'soft'
+          ? 'shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_1px_2px_rgba(16,19,26,0.04)]'
+          : '',
         'whitespace-nowrap tracking-tight select-none transition-all',
-        toneStyles[finalTone],
+        toneStyle,
         sizeMap[size],
         className,
       ].join(' ')}
@@ -100,12 +127,12 @@ export function StatusBadge({
       {withDot && (
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className={`absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping ${
-            finalTone === 'success' || finalTone === 'concluido' ? 'bg-emerald-400' :
+            finalTone === 'success' || finalTone === 'concluido' || finalTone === 'confirmado' ? 'bg-emerald-400' :
             finalTone === 'danger' || finalTone === 'cancelado' ? 'bg-red-400' :
             finalTone === 'amber' || finalTone === 'warning' ? 'bg-amber-400' : 'bg-indigo-400'
           }`} />
           <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
-            finalTone === 'success' || finalTone === 'concluido' ? 'bg-emerald-500' :
+            finalTone === 'success' || finalTone === 'concluido' || finalTone === 'confirmado' ? 'bg-emerald-500' :
             finalTone === 'danger' || finalTone === 'cancelado' ? 'bg-red-500' :
             finalTone === 'amber' || finalTone === 'warning' ? 'bg-amber-500' : 'bg-indigo-500'
           }`} />

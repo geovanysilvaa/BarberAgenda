@@ -5,6 +5,8 @@ export interface Appointment {
   status: AppointmentStatus
   professional: { id: string; name: string }
   service: { id: string; name: string; duration: number }
+  barbershop?: { id: string; name: string }
+  barbershopId?: string
   date: string
   startTime: string
   endTime: string

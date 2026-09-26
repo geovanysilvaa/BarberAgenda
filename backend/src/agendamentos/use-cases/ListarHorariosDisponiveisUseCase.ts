@@ -38,20 +38,13 @@ export class ListarHorariosDisponiveisUseCase implements IListarHorariosDisponiv
       throw new AppError('Profissional não encontrado.', 404, 'PROFESSIONAL_NOT_FOUND')
     }
 
-    // Queries independentes — roda em paralelo para reduzir latência de
-    // rede entre backend e Supabase (6 idas-e-voltas sequenciais → ~1).
-    const [servico, horarios, agendamentosDoDia, indisponibilidades, todasRecorrentes] = await Promise.all([
-      this.servicoRepository.buscarPorId(serviceId, barbershopId),
-      this.businessHoursRepository.listarPorBarbeariaId(barbershopId),
-      this.agendamentoRepository.listarPorProfissionalEData(professionalId, date),
-      this.indisponibilidadeRepository.listarPorProfissional(professionalId),
-      this.indisponibilidadeRecorrenteRepository.listarPorProfissional(professionalId),
-    ])
+    const servico = await this.servicoRepository.buscarPorId(serviceId, barbershopId)
 
     if (!servico) {
       throw new AppError('Serviço não encontrado.', 404, 'SERVICE_NOT_FOUND')
     }
 
+    const horarios = await this.businessHoursRepository.listarPorBarbeariaId(barbershopId)
     const horarioDoDia = horarios.find((h) => h.dayOfWeek === diaDaSemana(date))
 
     if (!horarioDoDia) {
@@ -61,6 +54,10 @@ export class ListarHorariosDisponiveisUseCase implements IListarHorariosDisponiv
     const abreMin = hhmmParaMinutos(horarioDoDia.openTime.slice(0, 5))
     const fechaMin = hhmmParaMinutos(horarioDoDia.closeTime.slice(0, 5))
     const duracao = servico.durationMinutes
+
+    const agendamentosDoDia = await this.agendamentoRepository.listarPorProfissionalEData(professionalId, date)
+    const indisponibilidades = await this.indisponibilidadeRepository.listarPorProfissional(professionalId)
+    const todasRecorrentes = await this.indisponibilidadeRecorrenteRepository.listarPorProfissional(professionalId)
     const indisponibilidadesRecorrentesDoDia = todasRecorrentes.filter((i) => i.dayOfWeek === diaDaSemana(date))
 
     const hoje = !dataNoPassado(date) && date === new Date().toISOString().slice(0, 10)

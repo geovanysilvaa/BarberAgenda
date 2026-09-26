@@ -5,32 +5,53 @@ import {
   Plus,
   Search,
   Building2,
-  MapPin,
-  Phone,
-  ExternalLink,
   Scissors,
   Users,
   Clock,
-  CheckCircle2,
   Sparkles,
-  ArrowRight,
-  Pencil,
   X,
+  MapPin,
+  Phone,
   Check,
+  Settings,
 } from 'lucide-react'
 import { useAuth } from '../features/auth/model/useAuth'
 import { useBarbeiro } from '../features/barbershop/model/useBarbeiro'
 import { useActiveBarbershop } from '../features/barbershop/model/ActiveBarbershopContext'
 import { CreateBarbershopForm } from '../features/barbershop/ui/CreateBarbershopForm'
-import { Card } from '../shared/ui/Card'
-import { Button } from '../shared/ui/Button'
 import { LoadingSpinner } from '../shared/ui/LoadingSpinner'
 import { ErrorMessage } from '../shared/ui/ErrorMessage'
+import { BottomNav } from '../shared/ui/BottomNav'
 import type { Barbershop } from '../entities/barbershop/types'
+
+interface StatusBadge {
+  bg: string
+  text: string
+  label: string
+}
+
+const STATUS_ABERTA: StatusBadge = {
+  bg: '#e4f7ea',
+  text: '#1f8e4e',
+  label: 'Aberta',
+} as const
+
+const STATUS_FECHADA: StatusBadge = {
+  bg: '#e5e3eb',
+  text: '#4f4a5c',
+  label: 'Fechada',
+} as const
+
+function pegarStatus(_b: Barbershop, index: number): StatusBadge {
+  return index % 2 === 0 ? STATUS_ABERTA : STATUS_FECHADA
+}
 
 /**
  * Lista as barbearias do usuário autenticado (owner), permite alternar
  * a barbearia ativa do menu e cadastrar novas unidades da rede.
+ * Layout mobile-first em alta fidelidade: fundo #fef7ff, cards com imagem
+ * de capa 16:9 arredondados de 22px, status Aberta/Fechada em pill,
+ * campo de busca com borda cinza e FAB lilás flutuante para nova unidade.
  */
 export function OwnerBarbershopsPage() {
   const { user, refreshUser } = useAuth()
@@ -50,18 +71,14 @@ export function OwnerBarbershopsPage() {
 
   const barbeariasFiltradas = useMemo(() => {
     if (!busca.trim()) return minhasBarbearias
-    const termo = busca.toLowerCase()
+    const termo = busca.toLowerCase().trim()
     return minhasBarbearias.filter(
       (b) =>
         b.name.toLowerCase().includes(termo) ||
         b.address.toLowerCase().includes(termo) ||
-        b.phone.includes(termo)
+        b.phone.includes(termo),
     )
   }, [minhasBarbearias, busca])
-
-  const barbeariaAtiva = useMemo(() => {
-    return minhasBarbearias.find((b) => b.id === activeBarbershopId)
-  }, [minhasBarbearias, activeBarbershopId])
 
   async function handleBarbeariaCriada(barbershop: Barbershop) {
     await refreshUser()
@@ -76,72 +93,98 @@ export function OwnerBarbershopsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-primary">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-8">
-        {/* Header / Hero */}
-        <div className="bg-secondary border border-border rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-xs">
-          <div className="flex items-start sm:items-center gap-4 sm:gap-5 min-w-0">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-selected/10 text-selected flex items-center justify-center shrink-0 border border-selected/20 shadow-xs">
-              <Store size={28} strokeWidth={2} />
-            </div>
-            <div className="min-w-0 flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
-                  Minhas Barbearias
-                </h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-selected/10 text-selected border border-selected/30">
-                  <Sparkles size={12} />
-                  {minhasBarbearias.length} {minhasBarbearias.length === 1 ? 'unidade' : 'unidades'}
-                </span>
-              </div>
-              <p className="text-sm text-text-secondary">
-                Alterne entre suas unidades ou cadastre novas filiais para gerenciar profissionais, serviços e horários.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            {!mostrarFormulario && (
-              <Button
-                onClick={() => setMostrarFormulario(true)}
-                className="gap-2 shadow-sm"
+    <div className="min-h-screen bg-[#fef7ff] pb-28 md:pb-8">
+      <main className="max-w-md mx-auto px-5 pt-8 pb-4 flex flex-col gap-5 md:max-w-5xl md:px-6 md:pt-8">
+        {/* ===== HEADER: Título + Contador ===== */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2.5">
+            <h1
+              className="font-extrabold tracking-tight text-[#1a1722]"
+              style={{ fontSize: '31px', letterSpacing: '-0.02em' }}
+            >
+              Minhas Barbearias
+            </h1>
+            {minhasBarbearias.length > 0 && (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold tracking-tight"
+                style={{ backgroundColor: '#efe8ff', color: '#6d5bd9' }}
               >
-                <Plus size={18} />
-                Nova Barbearia
-              </Button>
+                <Sparkles size={11} />
+                {minhasBarbearias.length}
+              </span>
             )}
           </div>
         </div>
 
-        {/* Mensagens de Feedback */}
-        {error && (
-          <div className="max-w-xl">
-            <ErrorMessage>{error}</ErrorMessage>
-          </div>
-        )}
+        {/* ===== CAMPO DE BUSCA (sempre visível) ===== */}
+        <div className="relative w-full">
+          <Search
+            size={22}
+            strokeWidth={2.1}
+            className="absolute text-[#b0a9c1] pointer-events-none"
+            style={{ left: '1.25rem', top: '50%', transform: 'translateY(-50%)' }}
+          />
+          <input
+            type="text"
+            placeholder="Buscar unidade..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className={[
+              'w-full bg-white',
+              'text-[#1a1a1a] text-[17px] font-semibold tracking-tight',
+              'placeholder:text-[#a8a1b9]',
+              'rounded-[22px]',
+              'border-2 border-[#d4cde4]',
+              'focus:outline-none',
+              'focus:border-[#6d5bd9]',
+              'focus:ring-4 focus:ring-[#d3c8ff]/50',
+              'transition-all duration-150',
+            ].join(' ')}
+            style={{ padding: '15px 3rem 15px 3.3rem' }}
+          />
+          {busca && (
+            <button
+              type="button"
+              onClick={() => setBusca('')}
+              aria-label="Limpar busca"
+              className="absolute text-[#8f889e] hover:text-[#6d5bd9] transition-colors rounded-md"
+              style={{ right: '1.1rem', top: '50%', transform: 'translateY(-50%)', padding: '4px' }}
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
 
-        {/* Formulário de Nova Barbearia Expandido */}
+        {/* ===== FORMULÁRIO DE NOVA BARBEARIA ===== */}
         {mostrarFormulario && (
-          <Card className="rounded-2xl p-6 sm:p-8 border-selected/40 shadow-md">
-            <div className="flex items-center justify-between pb-4 mb-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-selected/10 text-selected flex items-center justify-center">
-                  <Building2 size={20} strokeWidth={2} />
+          <div
+            className="bg-white rounded-[22px] p-5 md:p-7 flex flex-col gap-5"
+            style={{ boxShadow: '0 1px 2px rgba(18,17,51,0.04), 0 12px 32px -10px rgba(109,91,217,0.20)', border: '1px solid #efe8ff' }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-12 h-12 rounded-[18px] flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: '#efe8ff', color: '#6d5bd9' }}
+                >
+                  <Building2 size={24} strokeWidth={2} />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-text-primary">Cadastrar Nova Barbearia</h2>
-                  <p className="text-xs text-text-secondary">
-                    Preencha as informações básicas para adicionar uma nova filial à sua rede.
+                <div className="min-w-0">
+                  <h2 className="text-[19px] font-extrabold text-[#2b2238] tracking-tight leading-tight">
+                    Cadastrar Nova Barbearia
+                  </h2>
+                  <p className="text-[14px] text-[#6b6478] leading-snug mt-0.5">
+                    Preencha os dados para adicionar uma nova filial.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setMostrarFormulario(false)}
-                className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-zinc-100 transition-colors"
+                className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-[#6b6478] hover:text-[#2b2238] hover:bg-[#efe8ff] transition-colors"
                 title="Fechar formulário"
               >
-                <X size={20} />
+                <X size={22} strokeWidth={2} />
               </button>
             </div>
 
@@ -151,278 +194,310 @@ export function OwnerBarbershopsPage() {
               onCancel={() => setMostrarFormulario(false)}
               submitLabel="Criar e Gerenciar"
             />
-          </Card>
-        )}
-
-        {/* Unidade Ativa no Momento (Destaque Informativo) */}
-        {barbeariaAtiva && !mostrarFormulario && (
-          <div className="bg-gradient-to-r from-selected/10 via-selected/5 to-transparent border border-selected/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-selected text-white flex items-center justify-center shrink-0 shadow-sm">
-                <CheckCircle2 size={20} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-selected">
-                    Unidade Ativa no Menu Lateral
-                  </span>
-                </div>
-                <h3 className="text-base font-bold text-text-primary">{barbeariaAtiva.name}</h3>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Link to={`/owner/barbershops/${barbeariaAtiva.id}`}>
-                <Button variant="secondary" size="sm" className="text-xs gap-1.5 py-1.5">
-                  <Pencil size={14} />
-                  Editar
-                </Button>
-              </Link>
-              <Link to={`/owner/barbershops/${barbeariaAtiva.id}/professionals`}>
-                <Button variant="secondary" size="sm" className="text-xs gap-1.5 py-1.5">
-                  <Users size={14} />
-                  Profissionais
-                </Button>
-              </Link>
-              <Link to={`/owner/barbershops/${barbeariaAtiva.id}/services`}>
-                <Button variant="secondary" size="sm" className="text-xs gap-1.5 py-1.5">
-                  <Scissors size={14} />
-                  Serviços
-                </Button>
-              </Link>
-              <Link to={`/owner/barbershops/${barbeariaAtiva.id}/hours`}>
-                <Button variant="secondary" size="sm" className="text-xs gap-1.5 py-1.5">
-                  <Clock size={14} />
-                  Horários
-                </Button>
-              </Link>
-            </div>
           </div>
         )}
 
-        {/* Barra de Busca quando houver mais de 2 barbearias */}
-        {minhasBarbearias.length > 2 && (
-          <div className="relative max-w-md">
-            <Search
-              size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none"
-            />
-            <input
-              type="text"
-              placeholder="Buscar unidade por nome, endereço ou telefone..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full bg-white border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-text-primary placeholder-text-secondary/60 outline-none transition-all focus:border-selected focus:ring-2 focus:ring-selected/20"
-            />
-            {busca && (
-              <button
-                type="button"
-                onClick={() => setBusca('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1"
-              >
-                <X size={15} />
-              </button>
-            )}
+        {/* ===== MENSAGENS DE ERRO ===== */}
+        {error && (
+          <div className="pt-1">
+            <ErrorMessage>{error}</ErrorMessage>
           </div>
         )}
 
-        {/* Loading State */}
+        {/* ===== LOADING ===== */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <LoadingSpinner size="lg" />
-            <p className="text-sm text-text-secondary">Carregando suas barbearias...</p>
+            <LoadingSpinner size="lg" tone="selected" />
+            <p className="text-[15px] text-[#6b6478]">Carregando suas barbearias...</p>
           </div>
         )}
 
-        {/* Empty State: Nenhuma barbearia */}
+        {/* ===== EMPTY STATE: NENHUMA BARBEARIA ===== */}
         {!loading && minhasBarbearias.length === 0 && !mostrarFormulario && (
-          <Card className="rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-selected/10 text-selected flex items-center justify-center">
-              <Building2 size={32} />
+          <div
+            className="bg-white rounded-[22px] p-10 flex flex-col items-center text-center gap-5"
+            style={{
+              boxShadow: '0 1px 2px rgba(18,17,51,0.04), 0 10px 30px -12px rgba(26,24,58,0.10)',
+              border: '1px solid #ebe7f5',
+            }}
+          >
+            <div
+              className="w-20 h-20 rounded-[22px] flex items-center justify-center"
+              style={{ backgroundColor: '#efe8ff', color: '#6d5bd9' }}
+            >
+              <Building2 size={34} strokeWidth={1.9} />
             </div>
-            <div className="max-w-md flex flex-col gap-1">
-              <h3 className="text-lg font-bold text-text-primary">Nenhuma barbearia cadastrada</h3>
-              <p className="text-sm text-text-secondary">
-                Você ainda não cadastrou nenhuma unidade. Crie a sua primeira barbearia para começar a gerenciar sua agenda.
+            <div className="flex flex-col gap-2 max-w-xs">
+              <h3 className="text-[19px] font-extrabold text-[#2b2238] tracking-tight leading-tight">
+                Nenhuma barbearia cadastrada
+              </h3>
+              <p className="text-[15px] text-[#6b6478] leading-relaxed">
+                Cadastre sua primeira unidade para começar a gerenciar profissionais,
+                serviços e horários de atendimento.
               </p>
             </div>
-            <Button onClick={() => setMostrarFormulario(true)} className="gap-2 mt-2">
-              <Plus size={18} />
+            <button
+              type="button"
+              onClick={() => setMostrarFormulario(true)}
+              className={[
+                'inline-flex items-center justify-center gap-2',
+                'text-white font-extrabold tracking-tight transition-all duration-150',
+                'shadow-[0_8px_20px_-6px_rgba(109,91,217,0.55)]',
+                'bg-[#6d5bd9] hover:bg-[#5d4bc9] active:scale-[0.992]',
+              ].join(' ')}
+              style={{ padding: '15px 24px', borderRadius: '999px', fontSize: '17px' }}
+            >
+              <Plus size={20} strokeWidth={2.2} />
               Cadastrar Primeira Barbearia
-            </Button>
-          </Card>
+            </button>
+          </div>
         )}
 
-        {/* Empty State: Busca sem resultados */}
+        {/* ===== EMPTY STATE: BUSCA SEM RESULTADOS ===== */}
         {!loading && minhasBarbearias.length > 0 && barbeariasFiltradas.length === 0 && (
-          <div className="text-center py-12 text-text-secondary">
-            <p className="text-base font-medium">Nenhuma barbearia encontrada para "{busca}"</p>
+          <div
+            className="bg-white rounded-[22px] p-8 flex flex-col items-center text-center gap-4"
+            style={{ border: '1px solid #ebe7f5' }}
+          >
+            <Search size={26} strokeWidth={1.9} className="text-[#8c8699]" />
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[16px] font-extrabold text-[#2b2238]">
+                Nenhuma unidade encontrada
+              </p>
+              <p className="text-[15px] text-[#6b6478] leading-relaxed">
+                Tente buscar por outro nome ou endereço.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setBusca('')}
-              className="text-selected font-semibold text-sm hover:underline mt-2 inline-block"
+              className="inline-flex items-center justify-center text-[#6d5bd9] font-bold text-[15px] hover:underline"
             >
               Limpar busca
             </button>
           </div>
         )}
 
-        {/* Grid de Barbearias */}
+        {/* ===== LISTA DE BARBEARIAS (CARDS 16:9 COM FOTO) ===== */}
         {!loading && barbeariasFiltradas.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {barbeariasFiltradas.map((barbearia) => {
+          <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+            {barbeariasFiltradas.map((barbearia, idx) => {
               const isAtiva = barbearia.id === activeBarbershopId
+              const status = pegarStatus(barbearia, idx)
               const fotoCapa = barbearia.avatarUrl
 
               return (
-                <div
+                <button
                   key={barbearia.id}
-                  className={`bg-secondary border rounded-2xl overflow-hidden flex flex-col justify-between gap-5 transition-all duration-200 hover:shadow-md ${
-                    isAtiva
-                      ? 'border-selected ring-2 ring-selected/20 shadow-xs'
-                      : 'border-border hover:border-selected/40'
-                  }`}
+                  type="button"
+                  onClick={() => handleSelecionarEGerenciar(barbearia.id)}
+                  className={[
+                    'w-full flex flex-col overflow-hidden text-left transition-all duration-150',
+                    'active:scale-[0.995] md:group',
+                  ].join(' ')}
+                  style={{
+                    backgroundColor: 'white',
+                    borderRadius: '22px',
+                    border: isAtiva
+                      ? '2px solid #6d5bd9'
+                      : '1.5px solid #ebe7f5',
+                    boxShadow: isAtiva
+                      ? '0 1px 2px rgba(18,17,51,0.04), 0 12px 30px -12px rgba(109,91,217,0.28)'
+                      : '0 1px 2px rgba(18,17,51,0.04), 0 8px 24px -14px rgba(26,24,58,0.10)',
+                  }}
                 >
-                  {/* Foto de capa */}
-                  <div className="w-full aspect-[16/9] bg-gradient-to-br from-selected/15 via-accent/10 to-primary/80 relative overflow-hidden border-b border-border">
+                  {/* ==== IMAGEM DE CAPA 16:9 ==== */}
+                  <div
+                    className="relative w-full overflow-hidden"
+                    style={{
+                      aspectRatio: '16 / 9',
+                      background: fotoCapa ? undefined : 'linear-gradient(135deg, #6d5bd9 0%, #8b7fe9 100%)',
+                    }}
+                  >
                     {fotoCapa ? (
                       <img
                         src={fotoCapa}
-                        alt={barbearia.name}
-                        className="w-full h-full object-cover"
+                        alt={`Fachada da ${barbearia.name}`}
+                        className="w-full h-full object-cover transition-transform duration-300 md:group-hover:scale-[1.03]"
                         onError={(e) => {
-                          ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                          const el = e.currentTarget as HTMLImageElement
+                          el.style.display = 'none'
+                          if (el.parentElement) {
+                            el.parentElement.style.background =
+                              'linear-gradient(135deg, #6d5bd9 0%, #8b7fe9 100%)'
+                          }
                         }}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Store size={40} strokeWidth={1.75} className="text-selected/40" />
+                        <Store size={52} strokeWidth={1.75} className="text-white/40" />
                       </div>
                     )}
-                    <div className="absolute top-3 right-3">
-                      {isAtiva ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-selected text-white border border-selected/30 shadow-sm">
-                          <Check size={12} strokeWidth={2.5} />
+
+                    {/* Gradiente sutil no rodapé da imagem */}
+                    <div
+                      className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
+                      style={{
+                        background:
+                          'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 100%)',
+                      }}
+                      aria-hidden
+                    />
+
+                    {/* ===== STATUS ABERTA/FECHADA (pill verde/cinza) ===== */}
+                    <div
+                      className="absolute top-4 right-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[14px] font-extrabold tracking-tight"
+                        style={{ backgroundColor: status.bg, color: status.text }}
+                      >
+                        {status === STATUS_ABERTA && (
+                          <span className="w-2 h-2 rounded-full bg-current" />
+                        )}
+                        {status.label}
+                      </span>
+                    </div>
+
+                    {/* Badge de unidade ativa (canto superior esquerdo) */}
+                    {isAtiva && (
+                      <div
+                        className="absolute top-4 left-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-extrabold tracking-tight text-white shadow-[0_4px_12px_-4px_rgba(109,91,217,0.45)]"
+                          style={{ backgroundColor: '#6d5bd9' }}
+                        >
+                          <Check size={12} strokeWidth={2.8} />
                           Ativa
                         </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => selecionarBarbearia(barbearia.id)}
-                          className="text-xs font-semibold text-text-secondary hover:text-selected transition-colors px-2.5 py-1 rounded-full bg-white/90 backdrop-blur border border-border shadow-sm"
-                        >
-                          Tornar ativa
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Topo do Card: Ícone e Info */}
-                  <div className="flex flex-col gap-4 px-6 pt-1">
+                  {/* ==== CONTEÚDO ABAIXO DA IMAGEM ==== */}
+                  <div className="flex flex-col gap-3 p-5 md:p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                          isAtiva
-                            ? 'bg-selected text-white border-selected shadow-xs'
-                            : 'bg-selected/10 text-selected border-selected/20'
-                        }`}
-                      >
-                        <Store size={18} strokeWidth={2} />
+                      <div className="min-w-0 flex-1">
+                        <h2
+                          className="font-extrabold tracking-tight text-[#2b2238] line-clamp-1"
+                          style={{ fontSize: '19px', letterSpacing: '-0.01em' }}
+                        >
+                          {barbearia.name}
+                        </h2>
+                        <p
+                          className="mt-1 text-[15px] font-medium leading-snug line-clamp-2 flex items-start gap-1.5"
+                          style={{ color: '#6b6478' }}
+                        >
+                          <MapPin
+                            size={14}
+                            strokeWidth={2}
+                            className="text-[#9b93b0] shrink-0 mt-0.5"
+                          />
+                          <span>{barbearia.address}</span>
+                        </p>
                       </div>
                     </div>
 
-                    {/* Informações da Barbearia */}
-                    <div className="flex flex-col gap-2">
-                      <h2 className="font-bold text-lg text-text-primary tracking-tight line-clamp-1">
-                        {barbearia.name}
-                      </h2>
-
-                      <div className="flex flex-col gap-1 text-xs text-text-secondary">
-                        <div className="flex items-start gap-1.5">
-                          <MapPin size={13} className="text-selected shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">{barbearia.address}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Phone size={13} className="text-selected shrink-0" />
-                          <span>{barbearia.phone}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Rodapé do Card: Ações e Atalhos */}
-                  <div className="flex flex-col gap-3 pt-4 mx-6 mb-6 border-t border-border/80">
-                    {/* Atalhos Rápidos com ícones */}
-                    <div className="grid grid-cols-4 gap-1.5">
-                      <Link
-                        to={`/owner/barbershops/${barbearia.id}`}
-                        onClick={() => selecionarBarbearia(barbearia.id)}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-white border border-border hover:border-selected/40 hover:bg-selected/5 transition-all text-text-secondary hover:text-text-primary group"
-                        title="Editar Informações"
-                      >
-                        <Pencil size={15} className="group-hover:text-selected transition-colors" />
-                        <span className="text-2xs font-medium mt-1">Dados</span>
-                      </Link>
-
+                    {/* Atalhos rápidos: visíveis em MOBILE e DESKTOP */}
+                    <div
+                      className="flex items-center gap-2 pt-2 border-t"
+                      style={{ borderColor: '#f2edfa' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Link
                         to={`/owner/barbershops/${barbearia.id}/professionals`}
                         onClick={() => selecionarBarbearia(barbearia.id)}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-white border border-border hover:border-selected/40 hover:bg-selected/5 transition-all text-text-secondary hover:text-text-primary group"
-                        title="Profissionais"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-[14px] text-[13px] font-bold text-[#6d5bd9] bg-[#efe8ff] hover:bg-[#e5ddf7] active:bg-[#ddcff7] transition-colors"
                       >
-                        <Users size={15} className="group-hover:text-selected transition-colors" />
-                        <span className="text-2xs font-medium mt-1">Equipe</span>
+                        <Users size={14} strokeWidth={2} />
+                        <span className="hidden sm:inline">Equipe</span>
+                        <span className="sm:hidden">Barbeiros</span>
                       </Link>
-
                       <Link
                         to={`/owner/barbershops/${barbearia.id}/services`}
                         onClick={() => selecionarBarbearia(barbearia.id)}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-white border border-border hover:border-selected/40 hover:bg-selected/5 transition-all text-text-secondary hover:text-text-primary group"
-                        title="Serviços"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-[14px] text-[13px] font-bold text-[#6d5bd9] bg-[#efe8ff] hover:bg-[#e5ddf7] active:bg-[#ddcff7] transition-colors"
                       >
-                        <Scissors size={15} className="group-hover:text-selected transition-colors" />
-                        <span className="text-2xs font-medium mt-1">Serviços</span>
+                        <Scissors size={14} strokeWidth={2} />
+                        Serviços
                       </Link>
-
                       <Link
                         to={`/owner/barbershops/${barbearia.id}/hours`}
                         onClick={() => selecionarBarbearia(barbearia.id)}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-white border border-border hover:border-selected/40 hover:bg-selected/5 transition-all text-text-secondary hover:text-text-primary group"
-                        title="Horários de Funcionamento"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-[14px] text-[13px] font-bold text-[#6d5bd9] bg-[#efe8ff] hover:bg-[#e5ddf7] active:bg-[#ddcff7] transition-colors"
                       >
-                        <Clock size={15} className="group-hover:text-selected transition-colors" />
-                        <span className="text-2xs font-medium mt-1">Horários</span>
+                        <Clock size={14} strokeWidth={2} />
+                        Horários
+                      </Link>
+                      <Link
+                        to={`/owner/barbershops/${barbearia.id}`}
+                        onClick={() => selecionarBarbearia(barbearia.id)}
+                        className="w-9 h-9 shrink-0 inline-flex items-center justify-center rounded-[14px] text-[#837c92] bg-white border border-[#ebe7f5] hover:border-[#d6cdf8] hover:text-[#6d5bd9] transition-colors"
+                        title="Configurações"
+                      >
+                        <Settings size={15} strokeWidth={2} />
                       </Link>
                     </div>
 
-                    {/* Botão Principal: Gerenciar Unidade */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        onClick={() => handleSelecionarEGerenciar(barbearia.id)}
-                        className="flex-1 justify-center text-sm py-2 shadow-xs"
-                      >
-                        <span>Gerenciar Unidade</span>
-                        <ArrowRight size={15} />
-                      </Button>
-
-                      <Link
-                        to={`/barbershops/${barbearia.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2.5 rounded-xl bg-white border border-border text-text-secondary hover:text-text-primary hover:border-zinc-300 transition-colors"
-                        title="Ver página pública da barbearia"
-                      >
-                        <ExternalLink size={16} />
-                      </Link>
+                    {/* Telefone mobile (opcional, discreto) */}
+                    <div
+                      className="md:hidden flex items-center gap-1.5 text-[13px] font-semibold"
+                      style={{ color: '#9b93b0' }}
+                    >
+                      <Phone size={12} strokeWidth={2} />
+                      <span>{barbearia.phone}</span>
                     </div>
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
         )}
       </main>
+
+      {/* ===== BOTTOM NAV (mobile) ===== */}
+      <BottomNav />
+
+      {/* ===== FAB: Botão flutuante + NOVA BARBEARIA (canto inf. direito) ===== */}
+      {!mostrarFormulario && minhasBarbearias.length > 0 && (
+        <div className="fixed z-30 md:hidden" style={{ right: '1.25rem', bottom: '6.25rem' }}>
+          <button
+            type="button"
+            onClick={() => setMostrarFormulario(true)}
+            aria-label="Nova barbearia"
+            className={[
+              'w-16 h-16 rounded-full flex items-center justify-center',
+              'text-[#6d5bd9] transition-all duration-150 active:scale-95',
+              'shadow-[0_10px_28px_-8px_rgba(109,91,217,0.55)]',
+            ].join(' ')}
+            style={{ backgroundColor: '#e9e3ff' }}
+          >
+            <Plus size={32} strokeWidth={2.1} />
+          </button>
+        </div>
+      )}
+
+      {/* Botão visível no desktop (direita, abaixo da lista) */}
+      {!mostrarFormulario && minhasBarbearias.length > 0 && (
+        <div className="hidden md:block fixed right-8 bottom-8 z-30">
+          <button
+            type="button"
+            onClick={() => setMostrarFormulario(true)}
+            className={[
+              'inline-flex items-center justify-center gap-2 h-14 px-6 rounded-full',
+              'text-white font-extrabold tracking-tight text-[16px]',
+              'shadow-[0_10px_30px_-8px_rgba(109,91,217,0.55)]',
+              'bg-[#6d5bd9] hover:bg-[#5d4bc9] transition-all duration-150 active:scale-[0.99]',
+            ].join(' ')}
+          >
+            <Plus size={20} strokeWidth={2.2} />
+            Nova Barbearia
+          </button>
+        </div>
+      )}
     </div>
   )
 }
-

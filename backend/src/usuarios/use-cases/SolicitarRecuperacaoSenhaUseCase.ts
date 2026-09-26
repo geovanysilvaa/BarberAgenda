@@ -42,18 +42,14 @@ export class SolicitarRecuperacaoSenhaUseCase implements ISolicitarRecuperacaoSe
       })
 
       const linkRedefinicao = `${this.frontendUrl}/redefinir-senha?token=${tokenBruto}`
-      const emailDestino = usuario.email
 
-      // Envia em background (fire-and-forget) para não bloquear a resposta
-      // esperando o SMTP do Gmail. Se o e-mail falhar, não deixa o erro
-      // vazar pro cliente (evita confirmar/negar existência do usuário).
-      setImmediate(async () => {
-        try {
-          await this.emailService.enviarEmailRecuperacaoSenha(emailDestino, linkRedefinicao)
-        } catch (err) {
-          console.error('Falha ao enviar e-mail de recuperação de senha:', err)
-        }
-      })
+      // Se o e-mail falhar, não deixamos o erro vazar pro cliente (evita
+      // confirmar/negar existência do usuário via mensagem de erro).
+      try {
+        await this.emailService.enviarEmailRecuperacaoSenha(usuario.email, linkRedefinicao)
+      } catch (err) {
+        console.error('Falha ao enviar e-mail de recuperação de senha:', err)
+      }
     }
 
     return { message: MENSAGEM_GENERICA }
